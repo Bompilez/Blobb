@@ -897,7 +897,7 @@ body.modal-open {
   display: grid;
   place-items: center;
   background-color: rgba(17, 24, 39, 0.42);
-  padding: clamp(16px, 5vw, 32px);
+  padding: clamp(24px, 7vw, 48px);
   backdrop-filter: blur(5px);
   overflow-y: auto;
 }
@@ -905,8 +905,9 @@ body.modal-open {
 .edit-color-modal {
   display: grid;
   gap: var(--space-md);
+  box-sizing: border-box;
   width: min(420px, 100%);
-  max-height: calc(100vh - clamp(32px, 10vw, 64px));
+  max-height: calc(100dvh - clamp(48px, 14vw, 96px));
   overflow-y: auto;
   border: var(--border-default);
   border-radius: var(--border-radius);
