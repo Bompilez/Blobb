@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-const DEFAULT_COLORS = ["#000000", "#FFFFFF", "#1D4ED8", "#0F766E", "#16A34A", "#F59E0B", "#DC2626", "#7C3AED", "#F472B6", "#111827"];
-const DEFAULT_COLOR_NAMES = ["Black", "White", "Blue", "Teal", "Green", "Amber", "Red", "Violet", "Pink", "Gray"];
+const DEFAULT_COLORS = [];
+const DEFAULT_COLOR_NAMES = [];
 
 // ===== UTIL FUNCTIONS =====
 function isValidHex(input) {
