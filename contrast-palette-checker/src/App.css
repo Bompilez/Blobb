@@ -51,6 +51,10 @@ body {
   margin: 0;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .logo {
   font-size: 2rem;
   font-weight: 600;
@@ -884,6 +888,99 @@ body {
 
 .edit-color-action-button:last-child:hover {
   background-color: var(--light-red);
+}
+
+.edit-color-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  background-color: rgba(17, 24, 39, 0.42);
+  padding: clamp(16px, 5vw, 32px);
+  backdrop-filter: blur(5px);
+  overflow-y: auto;
+}
+
+.edit-color-modal {
+  display: grid;
+  gap: var(--space-md);
+  width: min(420px, 100%);
+  max-height: calc(100vh - clamp(32px, 10vw, 64px));
+  overflow-y: auto;
+  border: var(--border-default);
+  border-radius: var(--border-radius);
+  background-color: var(--surface-color);
+  padding: var(--space-lg);
+  box-shadow: 0 24px 70px rgba(17, 24, 39, 0.28);
+}
+
+.edit-color-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.edit-color-modal-header .card-heading {
+  margin-bottom: var(--space-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-color-modal-header p {
+  margin: 0;
+}
+
+.edit-color-modal-header p:last-child {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.edit-color-modal-close {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-default);
+  border-radius: var(--border-radius-pill);
+  background-color: var(--surface-color);
+  color: inherit;
+  cursor: pointer;
+}
+
+.edit-color-modal-close:hover {
+  background-color: var(--light-red);
+}
+
+.edit-color-modal-preview {
+  min-height: 120px;
+  border: var(--border-default);
+  border-radius: var(--border-radius);
+}
+
+.edit-color-modal-field {
+  display: grid;
+  gap: var(--space-xs);
+  color: #555;
+  font-size: 0.88rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-color-modal-field input {
+  min-height: 42px;
+  text-align: left;
+}
+
+.edit-color-modal .edit-color-actions {
+  gap: var(--space-sm);
+}
+
+.edit-color-modal .edit-color-action-button {
+  min-height: 42px;
+  gap: var(--space-xs);
+  font-weight: var(--font-weight-bold);
 }
 
 .compare-mode-selector {
@@ -1926,16 +2023,6 @@ body {
   .edit-color-button .material-symbols-outlined,
   .delete-color-button .material-symbols-outlined {
     font-size: 0.82rem;
-  }
-
-  .palette-swatch-card:has(.edit-color-name-input) {
-    grid-template-columns: 1fr;
-    grid-template-areas: none;
-  }
-
-  .palette-swatch-card:has(.edit-color-name-input) .color-preview {
-    height: 48px;
-    border-radius: var(--border-radius-secondary);
   }
 
   .preview-hero-row,

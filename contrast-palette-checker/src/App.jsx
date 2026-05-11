@@ -185,6 +185,7 @@ function App() {
   const activePaletteColor = selectedColors[0];
   const activePaletteColorIndex = colors.findIndex((color) => color === activePaletteColor);
   const activePaletteColorName = activePaletteColorIndex >= 0 ? getColorName(activePaletteColorIndex) : "";
+  const editingColor = editingColorIndex !== null ? colors[editingColorIndex] : "";
   const cleanedColorInput = normalizeHex(colorInput);
   const canAddColor = colors.length < 10 && isValidHex(cleanedColorInput);
   const cleanedEditColorInput = normalizeHex(editColorInput);
@@ -201,6 +202,14 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("modal-open", editingColorIndex !== null);
+
+    return () => {
+      document.body.classList.remove("modal-open");
+    };
+  }, [editingColorIndex]);
 
   if (canComparePalette && selectedColors.length === 2 && selectedColors.every(isValidHex)) {
     const contrast = getContrast(selectedColors[0], selectedColors[1]);
@@ -543,72 +552,35 @@ function App() {
                     <div className="added-colors-container">
                       {colors.map((color, index) => {
                         const isSelected = selectedColors.includes(color);
-                        const isEditing = editingColorIndex === index;
                         const isBackgroundColor = selectedColors[0] === color;
                         const isTextColor = selectedColors[1] === color;
                         return (
                           <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
-                            {isEditing ? (
-                              <>
-                                <input
-                                  className="edit-color-name-input"
-                                  placeholder="Color name"
-                                  value={editColorNameInput}
-                                  onChange={(e) => setEditColorNameInput(e.target.value)}
-                                  autoFocus
-                                />
-                                <div className="color-preview" style={{ backgroundColor: canSaveEditColor ? cleanedEditColorInput : color }}></div>
-                                <input className="edit-color-input" value={editColorInput} onChange={(e) => setEditColorInput(e.target.value)} />
-                                <div className="edit-color-actions">
-                                  <button className="edit-color-action-button" onClick={() => saveEditColor(index)} disabled={!canSaveEditColor}>
-                                    <span className="material-symbols-outlined">check</span>
-                                  </button>
-                                  <button className="edit-color-action-button" onClick={cancelEditColor}>
-                                    <span className="material-symbols-outlined">close</span>
-                                  </button>
+                            <p className="palette-color-name">{getColorName(index)}</p>
+                            <div className="palette-preview-shell">
+                              <div
+                                className={`color-preview ${isSelected ? "selected" : ""}`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => handlePaletteColorClick(color)}
+                                onDoubleClick={() => handlePaletteColorDoubleClick(color)}
+                              ></div>
+                              {compareMode === "manual" && (isBackgroundColor || isTextColor) && (
+                                <div className="palette-swatch-tags">
+                                  {isBackgroundColor && <span>Bg</span>}
+                                  {isTextColor && <span>Text</span>}
                                 </div>
-                              </>
-                            ) : (
-                              <>
-                                <p className="palette-color-name">{getColorName(index)}</p>
-                                <div className="palette-preview-shell">
-                                  <div
-                                    className={`color-preview ${isSelected ? "selected" : ""}`}
-                                    style={{ backgroundColor: color }}
-                                    onClick={() => handlePaletteColorClick(color)}
-                                    onDoubleClick={() => handlePaletteColorDoubleClick(color)}
-                                  ></div>
-                                  {compareMode === "manual" && (isBackgroundColor || isTextColor) && (
-                                    <div className="palette-swatch-tags">
-                                      {isBackgroundColor && <span>Bg</span>}
-                                      {isTextColor && <span>Text</span>}
-                                    </div>
-                                  )}
-                                  <button
-                                    className="edit-color-button"
-                                    onClick={() => startEditColor(index)}
-                                    aria-label={`Edit ${getColorName(index)} ${color}`}
-                                  >
-                                    <span className="material-symbols-outlined">edit</span>
-                                  </button>
-                                  <button
-                                    className="delete-color-button"
-                                    onClick={() => deleteColor(index)}
-                                    aria-label={`Delete ${getColorName(index)} ${color}`}
-                                  >
-                                    <span className="material-symbols-outlined">close</span>
-                                  </button>
-                                </div>
-                                <button
-                                  className="copy-hex-button"
-                                  onClick={(event) => copyColor(color, event)}
-                                  aria-label={`Copy ${getColorName(index)} ${color}`}
-                                >
-                                  <span>{color}</span>
-                                  <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
-                                </button>
-                              </>
-                            )}
+                              )}
+                              <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                                <span className="material-symbols-outlined">edit</span>
+                              </button>
+                              <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
+                                <span className="material-symbols-outlined">close</span>
+                              </button>
+                            </div>
+                            <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
+                              <span>{color}</span>
+                              <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
+                            </button>
                           </div>
                         );
                       })}
@@ -998,6 +970,48 @@ function App() {
           </div>
         </div>
       </section>
+      {editingColorIndex !== null && (
+        <div className="edit-color-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-color-title" onClick={cancelEditColor}>
+          <div className="edit-color-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-color-modal-header">
+              <div>
+                <p className="card-heading" id="edit-color-title">
+                  Edit color
+                </p>
+                <p>{editingColor}</p>
+              </div>
+              <button className="edit-color-modal-close" onClick={cancelEditColor} aria-label="Close edit color dialog">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="edit-color-modal-preview" style={{ backgroundColor: canSaveEditColor ? cleanedEditColorInput : editingColor }}></div>
+            <label className="edit-color-modal-field">
+              Color name
+              <input
+                className="edit-color-name-input"
+                placeholder="Color name"
+                value={editColorNameInput}
+                onChange={(e) => setEditColorNameInput(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <label className="edit-color-modal-field">
+              Hex value
+              <input className="edit-color-input" value={editColorInput} onChange={(e) => setEditColorInput(e.target.value)} />
+            </label>
+            <div className="edit-color-actions">
+              <button className="edit-color-action-button" onClick={() => saveEditColor(editingColorIndex)} disabled={!canSaveEditColor}>
+                <span className="material-symbols-outlined">check</span>
+                Save
+              </button>
+              <button className="edit-color-action-button" onClick={cancelEditColor}>
+                <span className="material-symbols-outlined">close</span>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <footer className="site-footer">
         <div className="footer-content">
           <div className="footer-brand">
