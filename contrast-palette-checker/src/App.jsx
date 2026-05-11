@@ -452,6 +452,27 @@ function App() {
     }, 1200);
   }
 
+  function renderCompareModeSelector(className = "") {
+    return (
+      <div className={`compare-mode-selector ${className}`} aria-label="Compare mode">
+        <button
+          type="button"
+          className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
+          onClick={() => changeCompareMode("manual")}
+        >
+          Manual compare
+        </button>
+        <button
+          type="button"
+          className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
+          onClick={() => changeCompareMode("palette")}
+        >
+          Palette compare
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       <nav className="navigation-container">
@@ -594,6 +615,7 @@ function App() {
                     </div>
                   </div>
                 </div>
+                {renderCompareModeSelector("compare-mode-selector-mobile")}
                 {compareMode === "manual" && (
                   <div className="compare-color-container">
                     <div className="compare-color-header">
@@ -682,20 +704,7 @@ function App() {
               </div>
 
               <div>
-                <div className="compare-mode-selector">
-                  <div
-                    className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
-                    onClick={() => changeCompareMode("manual")}
-                  >
-                    <a>Manual compare</a>
-                  </div>
-                  <div
-                    className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
-                    onClick={() => changeCompareMode("palette")}
-                  >
-                    <a>Palette compare</a>
-                  </div>
-                </div>
+                {renderCompareModeSelector("compare-mode-selector-desktop")}
                 {compareMode === "manual" && !selectedContrast && (
                   <div className="select-color-result-container">
                     <div className="quiet-empty-state">

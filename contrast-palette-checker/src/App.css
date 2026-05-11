@@ -896,6 +896,9 @@ body {
   background-color: var(--surface-color);
   border-radius: var(--border-radius) var(--border-radius) 0 0;
   border: var(--border-default);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-medium);
   z-index: 99999;
   transform: translateY(var(--border-width));
   cursor: pointer;
@@ -912,21 +915,17 @@ body {
 
 .compare-mode-option-active {
   border-bottom-color: var(--surface-color);
+  font-weight: var(--font-weight-bold);
   opacity: 1;
   box-shadow: 0 -2px 0 var(--purple) inset;
 }
 
-.compare-mode-option a {
-  color: inherit;
-  font-weight: var(--font-weight-medium);
-}
-
-.compare-mode-option-active a {
-  font-weight: var(--font-weight-bold);
-}
-
-.compare-mode-selector > div:first-child {
+.compare-mode-selector > :first-child {
   margin-left: calc(var(--padding-card) - var(--compare-mode-offset));
+}
+
+.compare-mode-selector-mobile {
+  display: none;
 }
 
 .compare-color-section {
@@ -972,7 +971,6 @@ body {
 }
 
 .contrast-checker-group:last-child {
-  padding-bottom: 0;
   border-bottom: none;
 }
 
@@ -1842,8 +1840,8 @@ body {
   }
 
   .added-colors-container {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--space-sm);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-md) var(--space-sm);
   }
 
   .palette-swatch-card {
@@ -1853,8 +1851,8 @@ body {
       "name";
     justify-items: center;
     align-items: start;
-    gap: var(--space-xs);
-    padding: var(--space-xs);
+    gap: var(--space-sm);
+    padding: 0;
     border-color: transparent;
     background-color: transparent;
   }
@@ -1867,19 +1865,19 @@ body {
   .palette-swatch-card .palette-color-name {
     grid-area: name;
     width: 100%;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     line-height: 1.2;
     text-align: center;
   }
 
   .palette-preview-shell {
     grid-area: preview;
-    width: 48px;
-    height: 48px;
+    width: clamp(56px, 16vw, 68px);
+    height: clamp(56px, 16vw, 68px);
   }
 
   .palette-preview-shell .color-preview {
-    height: 48px;
+    height: 100%;
     border-radius: var(--border-radius-pill);
   }
 
@@ -2105,7 +2103,7 @@ body {
 
   .contrast-checker-text,
   .contrast-checker-text-single {
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto;
     gap: var(--space-sm);
   }
 
@@ -2116,7 +2114,6 @@ body {
   }
 
   .contrast-check {
-    min-height: 30px;
     justify-self: start;
     padding: var(--padding-badge);
     font-size: 0.82rem;
@@ -2139,8 +2136,16 @@ body {
     padding: 4px;
   }
 
-  .compare-mode-selector > div:first-child {
+  .compare-mode-selector > :first-child {
     margin-left: 0;
+  }
+
+  .compare-mode-selector-desktop {
+    display: none;
+  }
+
+  .compare-mode-selector-mobile {
+    display: grid;
   }
 
   .compare-mode-option {
