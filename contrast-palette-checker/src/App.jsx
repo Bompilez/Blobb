@@ -171,7 +171,7 @@ function App() {
   const [compareMode, setCompareMode] = useState("manual");
   const [colors, setColors] = useState(DEFAULT_COLORS);
   const [colorNames, setColorNames] = useState(DEFAULT_COLOR_NAMES);
-  const [selectedColors, setSelectedColors] = useState([DEFAULT_COLORS[0], DEFAULT_COLORS[1]]);
+  const [selectedColors, setSelectedColors] = useState(DEFAULT_COLORS.slice(0, 2));
   const [activeSelectedIndex, setActiveSelectedIndex] = useState(0);
   const [editingColorIndex, setEditingColorIndex] = useState(null);
   const [editColorInput, setEditColorInput] = useState("");
@@ -202,7 +202,7 @@ function App() {
     };
   }, []);
 
-  if (canComparePalette && selectedColors.length === 2) {
+  if (canComparePalette && selectedColors.length === 2 && selectedColors.every(isValidHex)) {
     const contrast = getContrast(selectedColors[0], selectedColors[1]);
     const contrastProgress = Math.min((contrast / 7) * 100, 100);
 
@@ -348,8 +348,24 @@ function App() {
       return;
     }
 
-    setColors([...colors, input]);
+    const nextColors = [...colors, input];
+
+    setColors(nextColors);
     setColorNames([...colorNames, colorNameInput.trim()]);
+    setSelectedColors((currentSelectedColors) => {
+      const validSelectedColors = currentSelectedColors.filter((color) => nextColors.includes(color));
+
+      if (compareMode === "palette") {
+        return validSelectedColors.length > 0 ? validSelectedColors.slice(0, 1) : [input];
+      }
+
+      if (nextColors.length < 2) {
+        return validSelectedColors.length > 0 ? validSelectedColors : [input];
+      }
+
+      const fallbackColors = nextColors.filter((color) => !validSelectedColors.includes(color));
+      return [...validSelectedColors, ...fallbackColors].slice(0, 2);
+    });
     setColorInput("");
     setColorNameInput("");
   }
