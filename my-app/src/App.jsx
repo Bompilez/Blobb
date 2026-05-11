@@ -441,16 +441,9 @@ function App() {
       <nav className="navigation-container">
         <div className="navigation-content">
           <div className="logo-container">
-            <span>Logo</span>
+            <span className="logo">Blobb.net</span>
           </div>
-          <div className="navigation-anchor-items">
-            <span>
-              <a>F.A.Q</a>
-            </span>
-            <span>
-              <a>Download</a>
-            </span>
-          </div>
+          <div className="navigation-anchor-items"></div>
         </div>
       </nav>
       <section className="section-width">
@@ -995,6 +988,20 @@ function App() {
           </div>
         </div>
       </section>
+      <footer className="site-footer">
+        <div className="footer-content">
+          <div className="footer-brand">
+            <span className="footer-logo">Blobb.net</span>
+            <p>Quick contrast checks for palettes, UI colors, and readable interfaces.</p>
+          </div>
+          <div className="footer-links" aria-label="Footer links">
+            <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
+              WCAG guidelines
+            </a>
+            <a href="#top">Back to top</a>
+          </div>
+        </div>
+      </footer>
     </>
   );
 }
