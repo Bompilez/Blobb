@@ -463,21 +463,6 @@ function App() {
                       accessibility.
                     </p>
                   </div>
-                  <div>
-                    <p>
-                      <a type="button" rel="noopener noreferrer">
-                        Who is this for?
-                      </a>
-                    </p>
-                  </div>
-
-                  <div>
-                    <p>
-                      <a type="button" rel="noopener noreferrer">
-                        How does it works
-                      </a>
-                    </p>
-                  </div>
                 </div>
               </header>
               <div className={`top-grid ${compareMode === "palette" ? "top-grid-palette" : ""}`}>
@@ -995,10 +980,12 @@ function App() {
             <p>Quick contrast checks for palettes, UI colors, and readable interfaces.</p>
           </div>
           <div className="footer-links" aria-label="Footer links">
-            <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
-              WCAG guidelines
+            <a className="github-button footer-github-button" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
+              View on GitHub
+              <span className="material-symbols-outlined" aria-hidden="true">
+                open_in_new
+              </span>
             </a>
-            <a href="#top">Back to top</a>
           </div>
         </div>
       </footer>

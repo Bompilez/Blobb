@@ -122,6 +122,41 @@ body {
   line-height: 1.7;
 }
 
+.github-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--space-sm);
+  border: var(--border-default);
+  border-color: transparent;
+  border-radius: var(--border-radius-secondary);
+  background-color: var(--purple);
+  color: var(--surface-color);
+  padding: 0 var(--space-lg);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.github-button:hover {
+  background-color: #4d4989;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.14);
+  transform: translateY(-1px);
+}
+
+.github-button:focus-visible {
+  outline: var(--outline-selected);
+  outline-offset: 3px;
+}
+
+.footer-github-button {
+  border-color: transparent;
+  color: var(--surface-color);
+}
+
 .intro-eyebrow {
   margin-bottom: var(--space-md);
   color: #555;
@@ -1642,6 +1677,17 @@ body {
 
 .footer-links a:hover {
   background-color: var(--light-blue);
+}
+
+.footer-links .footer-github-button {
+  min-height: 38px;
+  border-color: transparent;
+  background-color: var(--purple);
+  color: var(--surface-color);
+}
+
+.footer-links .footer-github-button:hover {
+  background-color: #4d4989;
 }
 
 @media (max-width: 1180px) {
