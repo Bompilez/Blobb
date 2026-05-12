@@ -1,326 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
+import BrandMark from "./components/BrandMark";
+import { DEFAULT_COLOR_NAMES, DEFAULT_COLORS, MAX_PALETTE_COLORS } from "./lib/paletteConstants";
+import { getContrast, hexToHSL, hslToHex, isValidHex, normalizeHex } from "./lib/colorUtils";
+import { getColorScale, getReadableTextColor, getScaleCssVariables, getScaleName } from "./lib/scaleUtils";
+import { CONTRAST_PAGE_META, getRouteFromPath, SCALE_PAGE_META, setMetaContent } from "./lib/routeMeta";
 import "./App.css";
-
-const DEFAULT_COLORS = [];
-const DEFAULT_COLOR_NAMES = [];
-const MAX_PALETTE_COLORS = 11;
-const SCALE_STEPS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
-const SCALE_CHROMA_FACTORS = [0.16, 0.26, 0.42, 0.62, 0.82, 1, 0.92, 0.78, 0.62, 0.46, 0.32];
-const CONTRAST_PAGE_META = {
-  title: "Blobb.net Contrast Palette Checker | WCAG Color Contrast Tool",
-  description:
-    "Check color contrast for UI palettes against WCAG guidelines. Compare foreground and background colors, scan full palettes, and preview readable interface combinations.",
-  canonical: "https://blobb.net/",
-};
-const SCALE_PAGE_META = {
-  title: "Blobb.net Color Scale Generator | UI Palette Tool",
-  description: "Generate a light-to-dark UI color scale from one base color, then copy CSS variables or use the palette for contrast checks.",
-  canonical: "https://blobb.net/scale-generator",
-};
-
-// ===== UTIL FUNCTIONS =====
-function isValidHex(input) {
-  const hex = input.startsWith("#") ? input.slice(1) : input;
-
-  if (hex.length !== 3 && hex.length !== 6) {
-    return false;
-  }
-
-  const split = hex.toLowerCase().split("");
-  const allowedCharacters = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"];
-
-  for (let i = 0; i < split.length; i++) {
-    if (!allowedCharacters.includes(split[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function normalizeHex(input) {
-  const cleanedInput = input.trim().toLowerCase();
-  return cleanedInput.startsWith("#") ? cleanedInput : `#${cleanedInput}`;
-}
-
-function hexToRGB(color) {
-  const hex = color.slice(1);
-
-  let r;
-  let g;
-  let b;
-
-  if (hex.length === 3) {
-    r = hex[0] + hex[0];
-    g = hex[1] + hex[1];
-    b = hex[2] + hex[2];
-  } else {
-    r = hex.substring(0, 2);
-    g = hex.substring(2, 4);
-    b = hex.substring(4, 6);
-  }
-
-  const decimalValueR = parseInt(r, 16);
-  const decimalValueG = parseInt(g, 16);
-  const decimalValueB = parseInt(b, 16);
-
-  return { r: decimalValueR, g: decimalValueG, b: decimalValueB };
-}
-
-function getLuminance(rgb) {
-  const { r, g, b } = rgb;
-
-  function transform(channel) {
-    const value = channel / 255;
-
-    if (value <= 0.03928) {
-      return value / 12.92;
-    }
-
-    return ((value + 0.055) / 1.055) ** 2.4;
-  }
-
-  const red = transform(r);
-  const green = transform(g);
-  const blue = transform(b);
-
-  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-}
-
-function getContrast(colorA, colorB) {
-  const rgbA = hexToRGB(colorA);
-  const rgbB = hexToRGB(colorB);
-
-  const lumA = getLuminance(rgbA);
-  const lumB = getLuminance(rgbB);
-
-  const lighter = Math.max(lumA, lumB);
-  const darker = Math.min(lumA, lumB);
-
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function rgbToHex(rgb) {
-  function toHex(channel) {
-    return Math.round(Math.min(Math.max(channel, 0), 255))
-      .toString(16)
-      .padStart(2, "0");
-  }
-
-  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
-}
-
-function hexToHSL(color) {
-  const { r, g, b } = hexToRGB(color);
-  const red = r / 255;
-  const green = g / 255;
-  const blue = b / 255;
-
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const lightness = (max + min) / 2;
-  const delta = max - min;
-
-  if (delta === 0) {
-    return { h: 0, s: 0, l: Math.round(lightness * 100) };
-  }
-
-  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
-  let hue;
-
-  if (max === red) {
-    hue = 60 * (((green - blue) / delta) % 6);
-  } else if (max === green) {
-    hue = 60 * ((blue - red) / delta + 2);
-  } else {
-    hue = 60 * ((red - green) / delta + 4);
-  }
-
-  if (hue < 0) {
-    hue += 360;
-  }
-
-  return { h: Math.round(hue), s: Math.round(saturation * 100), l: Math.round(lightness * 100) };
-}
-
-function hslToHex(hue, saturation, lightness) {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = l - chroma / 2;
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (hue < 60) {
-    red = chroma;
-    green = x;
-  } else if (hue < 120) {
-    red = x;
-    green = chroma;
-  } else if (hue < 180) {
-    green = chroma;
-    blue = x;
-  } else if (hue < 240) {
-    green = x;
-    blue = chroma;
-  } else if (hue < 300) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  return rgbToHex({
-    r: Math.round((red + m) * 255),
-    g: Math.round((green + m) * 255),
-    b: Math.round((blue + m) * 255),
-  });
-}
-
-function getRouteFromPath() {
-  if (typeof window !== "undefined" && window.location.pathname === "/scale-generator") {
-    return "scale";
-  }
-
-  return "contrast";
-}
-
-function setMetaContent(selector, value) {
-  const element = document.querySelector(selector);
-  if (element) {
-    element.setAttribute("content", value);
-  }
-}
-
-function srgbToLinear(channel) {
-  const value = channel / 255;
-  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-}
-
-function linearToSrgb(channel) {
-  const value = channel <= 0.0031308 ? channel * 12.92 : 1.055 * channel ** (1 / 2.4) - 0.055;
-  return value * 255;
-}
-
-function hexToOklch(color) {
-  const { r, g, b } = hexToRGB(color);
-  const red = srgbToLinear(r);
-  const green = srgbToLinear(g);
-  const blue = srgbToLinear(b);
-
-  const l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
-  const m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
-  const s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
-
-  const lRoot = Math.cbrt(l);
-  const mRoot = Math.cbrt(m);
-  const sRoot = Math.cbrt(s);
-
-  const lightness = 0.2104542553 * lRoot + 0.793617785 * mRoot - 0.0040720468 * sRoot;
-  const a = 1.9779984951 * lRoot - 2.428592205 * mRoot + 0.4505937099 * sRoot;
-  const oklabB = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.808675766 * sRoot;
-  const chroma = Math.sqrt(a * a + oklabB * oklabB);
-  let hue = (Math.atan2(oklabB, a) * 180) / Math.PI;
-
-  if (hue < 0) {
-    hue += 360;
-  }
-
-  return { lightness, chroma, hue };
-}
-
-function oklchToRgb(lightness, chroma, hue) {
-  const hueRadians = (hue * Math.PI) / 180;
-  const a = chroma * Math.cos(hueRadians);
-  const b = chroma * Math.sin(hueRadians);
-
-  const lRoot = lightness + 0.3963377774 * a + 0.2158037573 * b;
-  const mRoot = lightness - 0.1055613458 * a - 0.0638541728 * b;
-  const sRoot = lightness - 0.0894841775 * a - 1.291485548 * b;
-
-  const l = lRoot ** 3;
-  const m = mRoot ** 3;
-  const s = sRoot ** 3;
-
-  return {
-    r: linearToSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-    g: linearToSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-    b: linearToSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
-  };
-}
-
-function isRgbInGamut(rgb) {
-  return rgb.r >= 0 && rgb.r <= 255 && rgb.g >= 0 && rgb.g <= 255 && rgb.b >= 0 && rgb.b <= 255;
-}
-
-function oklchToHexInGamut(lightness, chroma, hue) {
-  let adjustedChroma = chroma;
-  let rgb = oklchToRgb(lightness, adjustedChroma, hue);
-
-  for (let i = 0; i < 24 && !isRgbInGamut(rgb); i += 1) {
-    adjustedChroma *= 0.88;
-    rgb = oklchToRgb(lightness, adjustedChroma, hue);
-  }
-
-  return rgbToHex(rgb);
-}
-
-function interpolateLightness(baseLightness, index) {
-  if (index < 5) {
-    const distanceFromBase = 5 - index;
-    return baseLightness + (0.98 - baseLightness) * (distanceFromBase / 5);
-  }
-
-  if (index === 5) {
-    return baseLightness;
-  }
-
-  const distanceFromBase = index - 5;
-  return baseLightness - (baseLightness - 0.14) * (distanceFromBase / 5);
-}
-
-function getColorScale(baseColor) {
-  const baseOklch = hexToOklch(baseColor);
-
-  return SCALE_STEPS.map((step, index) => {
-    if (step === "500") {
-      return { step, hex: baseColor };
-    }
-
-    const lightness = Math.min(Math.max(interpolateLightness(baseOklch.lightness, index), 0.08), 0.99);
-    const chroma = baseOklch.chroma * SCALE_CHROMA_FACTORS[index];
-    const hex = oklchToHexInGamut(lightness, chroma, baseOklch.hue);
-
-    return { step, hex };
-  });
-}
-
-function getReadableTextColor(color) {
-  return getContrast(color, "#ffffff") >= getContrast(color, "#111827") ? "#ffffff" : "#111827";
-}
-
-function getScaleName(name) {
-  return name.trim() || "Primary";
-}
-
-function getCssVariableName(name) {
-  return getScaleName(name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "primary";
-}
-
-function getScaleCssVariables(scaleColors, name) {
-  const variableName = getCssVariableName(name);
-  const variableLines = scaleColors.map((color) => `  --${variableName}-${color.step}: ${color.hex};`);
-
-  return [":root {", ...variableLines, "}"].join("\n");
-}
 
 // ===== APP =====
 function App() {
@@ -720,7 +406,9 @@ function App() {
           <div className="palette-toolbar">
             <div>
               <p className="card-heading">Your palette</p>
-              <p className="palette-count">{colors.length}/{MAX_PALETTE_COLORS} colors</p>
+              <p className="palette-count">
+                {colors.length}/{MAX_PALETTE_COLORS} colors
+              </p>
             </div>
             <div className="add-color-control">
               <input
@@ -824,7 +512,9 @@ function App() {
               <div>
                 <p className="card-heading">{canGenerateScale ? `${scaleName} scale` : "Generated scale"}</p>
                 <p className="scale-panel-subtitle">
-                  {canGenerateScale ? `${activePaletteColor} is the 500 step. Generated from the selected palette color.` : "Select or add a palette color to generate a scale."}
+                  {canGenerateScale
+                    ? `${activePaletteColor} is the 500 step. Generated from the selected palette color.`
+                    : "Select or add a palette color to generate a scale."}
                 </p>
               </div>
               <span className="scale-method-pill">OKLCH</span>
@@ -849,7 +539,9 @@ function App() {
                     style={{ backgroundColor: color.hex, color: getReadableTextColor(color.hex) }}
                     onClick={copyDatasetColor}
                   >
-                    <span className="scale-swatch-name">{scaleName} {color.step}</span>
+                    <span className="scale-swatch-name">
+                      {scaleName} {color.step}
+                    </span>
                     <span className="scale-swatch-hex">{color.hex}</span>
                     <span className="material-symbols-outlined">{copiedColor === color.hex ? "check" : "content_copy"}</span>
                   </button>
@@ -895,7 +587,8 @@ function App() {
       <nav className="navigation-container">
         <div className="navigation-content">
           <div className="logo-container">
-            <span className="logo">Blobb.net</span>
+            <BrandMark />
+            <span className="logo">Blobb</span>
           </div>
           <div className="navigation-anchor-items">
             <button className={`navigation-link ${route === "contrast" ? "navigation-link-active" : ""}`} onClick={() => navigateTo("contrast")}>
@@ -910,406 +603,406 @@ function App() {
       <section className="section-width">
         <div className="content">
           {route === "contrast" ? (
-          <div>
-            <div className={`contrast-checker-section ${isPaletteEmpty ? "contrast-checker-section-palette-empty" : ""}`}>
-              <header className="intro-section">
-                <div>
+            <div>
+              <div className={`contrast-checker-section ${isPaletteEmpty ? "contrast-checker-section-palette-empty" : ""}`}>
+                <header className="intro-section">
                   <div>
-                    <h1>Check whether your colors or palette is readable</h1>
-                    <p>
-                      Compare foreground and background colors against{" "}
-                      <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
-                        WCAG
-                      </a>{" "}
-                      contrast guidelines. Verify that text, icons, buttons, and other UI elements maintain sufficient contrast for readability and
-                      accessibility.
-                    </p>
-                  </div>
-                </div>
-              </header>
-              <div className={`top-grid ${compareMode === "palette" ? "top-grid-palette" : ""}`}>
-                {renderPaletteSection("contrast")}
-                {renderCompareModeSelector("compare-mode-selector-mobile")}
-                {compareMode === "manual" && (
-                  <div className="compare-color-container">
-                    <div className="compare-color-header">
-                      <p className="card-heading">Selected colors</p>
-                      <button className="swap-color-button" onClick={swapSelectedColors} disabled={!selectedContrast}>
-                        <span className="material-symbols-outlined">swap_horiz</span>
-                        Swap
-                      </button>
-                    </div>
-                    <div className="selected-slot-control">
-                      <button className={activeSelectedIndex === 1 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(1)}>
-                        Text
-                      </button>
-                      <button className={activeSelectedIndex === 0 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(0)}>
-                        Background
-                      </button>
-                    </div>
-                    {selectedContrast ? (
-                      <div className="compare-color-controls">
-                        {[
-                          { label: "Text color", color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
-                          { label: "Background color", color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
-                        ].map((selectedColor) => {
-                          const hue = hexToHSL(selectedColor.color).h;
-
-                          return (
-                            <div
-                              className={`compare-color-item ${activeSelectedIndex === selectedColor.selectedIndex ? "compare-color-item-active" : ""}`}
-                              key={selectedColor.label}
-                              onClick={() => setActiveSelectedIndex(selectedColor.selectedIndex)}
-                            >
-                              <div className="compare-color-title-row">
-                                <p className="card-heading">{selectedColor.label}</p>
-                                <span className="selected-chip" aria-hidden={activeSelectedIndex !== selectedColor.selectedIndex}>
-                                  Selected
-                                </span>
-                              </div>
-                              <div className="selected-color-body">
-                                <div className={selectedColor.className} style={{ backgroundColor: selectedColor.color }}></div>
-                                <div className="selected-color-edit-panel">
-                                  <div className="selected-color-input-shell">
-                                    <input
-                                      key={selectedColor.color}
-                                      defaultValue={selectedColor.color}
-                                      onBlur={(e) => updateSelectedColor(selectedColor.selectedIndex, e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          updateSelectedColor(selectedColor.selectedIndex, e.target.value);
-                                          e.currentTarget.blur();
-                                        }
-                                      }}
-                                      aria-label={`${selectedColor.label} hex value`}
-                                    />
-                                    <button
-                                      className="copy-selected-color-button"
-                                      onClick={(event) => copyColor(selectedColor.color, event)}
-                                      aria-label={`Copy ${selectedColor.color}`}
-                                    >
-                                      <span className="material-symbols-outlined">{copiedColor === selectedColor.color ? "check" : "content_copy"}</span>
-                                    </button>
-                                  </div>
-                                  <label>
-                                    Hue
-                                    <input
-                                      className="hue-slider"
-                                      type="range"
-                                      min="0"
-                                      max="359"
-                                      value={hue}
-                                      onChange={(e) => updateSelectedColorHue(selectedColor.selectedIndex, e.target.value)}
-                                    />
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="empty-panel-state">
-                        <p>{canComparePalette ? "No selection yet" : "Add two colors to compare."}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                {renderCompareModeSelector("compare-mode-selector-desktop")}
-                {compareMode === "manual" && !selectedContrast && (
-                  <div className="select-color-result-container">
-                    <div className="quiet-empty-state">
-                      <span className="material-symbols-outlined">ads_click</span>
-                      <p>{canComparePalette ? "Select two colors from your palette." : "Add two colors to compare."}</p>
+                    <div>
+                      <h1>Check whether your colors or palette is readable</h1>
+                      <p>
+                        Compare foreground and background colors against{" "}
+                        <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
+                          WCAG
+                        </a>{" "}
+                        contrast guidelines. Verify that text, icons, buttons, and other UI elements maintain sufficient contrast for readability and
+                        accessibility.
+                      </p>
                     </div>
                   </div>
-                )}
-                {compareMode === "manual" && selectedContrast && (
-                  <div className="select-color-result-container">
-                    <div className="compare-color-section">
-                      <div className="compare-color-text-container">
-                        <p className="compare-info-text card-heading">Contrast</p>
-                        <div className="contrast-ratio-container">
-                          <h2 className="contrast-text">{selectedContrast.contrast.toFixed(1)} : 1</h2>
-                          <span className={`contrast-text-status ${selectedContrast.contrastElements.contrastClass}`}>
-                            <span className="material-symbols-outlined">{selectedContrast.contrastElements.contrastIcon}</span>
-                            {selectedContrast.contrastElements.contrastStatus}
-                          </span>
-                        </div>
-                        <div className="contrast-checker-container">
-                          <div className="contrast-checker-group">
-                            <div className="contrast-checker-text">
-                              <h4>Large text</h4>
-                              <p className={`contrast-check ${selectedContrast.passesLargeAA ? "success" : "error"}`}>
-                                {selectedContrast.passesLargeAA ? (
-                                  <span className="material-symbols-outlined">check</span>
-                                ) : (
-                                  <span className="material-symbols-outlined">close</span>
-                                )}{" "}
-                                Level AA
-                              </p>
-                              <p className={`contrast-check ${selectedContrast.passesLargeAAA ? "success" : "error"}`}>
-                                {selectedContrast.passesLargeAAA ? (
-                                  <span className="material-symbols-outlined">check</span>
-                                ) : (
-                                  <span className="material-symbols-outlined">close</span>
-                                )}{" "}
-                                Level AAA
-                              </p>
-                            </div>
-                            <p className="usage-note">
-                              {selectedContrast.passesLargeAA
-                                ? "Can be used for large headings and bold display text."
-                                : "Avoid for large text unless one of the colors is adjusted."}
-                            </p>
-                          </div>
-                          <div className="contrast-checker-group">
-                            <div className="contrast-checker-text">
-                              <h4>Small text</h4>
-                              <p className={`contrast-check ${selectedContrast.passesSmallAA ? "success" : "error"}`}>
-                                {selectedContrast.passesSmallAA ? (
-                                  <span className="material-symbols-outlined">check</span>
-                                ) : (
-                                  <span className="material-symbols-outlined">close</span>
-                                )}{" "}
-                                Level AA
-                              </p>
-                              <p className={`contrast-check ${selectedContrast.passesSmallAAA ? "success" : "error"}`}>
-                                {selectedContrast.passesSmallAAA ? (
-                                  <span className="material-symbols-outlined">check</span>
-                                ) : (
-                                  <span className="material-symbols-outlined">close</span>
-                                )}{" "}
-                                Level AAA
-                              </p>
-                            </div>
-                            <p className="usage-note">
-                              {selectedContrast.passesSmallAA
-                                ? "Can be used for body copy, labels, and smaller interface text."
-                                : "Avoid for body copy, labels, form text, and small UI text."}
-                            </p>
-                          </div>
-                          <div className="contrast-checker-group">
-                            <div className="contrast-checker-text contrast-checker-text-single">
-                              <h4>Graphics & UI Elements</h4>
-                              <p className={`contrast-check ${selectedContrast.passesGraphicsUI ? "success" : "error"}`}>
-                                {selectedContrast.passesGraphicsUI ? (
-                                  <span className="material-symbols-outlined">check</span>
-                                ) : (
-                                  <span className="material-symbols-outlined">close</span>
-                                )}{" "}
-                                Level AA
-                              </p>
-                            </div>
-                            <p className="usage-note">
-                              {selectedContrast.passesGraphicsUI
-                                ? "Can be used for icons, button boundaries, controls, and visual indicators."
-                                : "Avoid for icons, button states, focus indicators, and important graphics."}
-                            </p>
-                          </div>
-                        </div>
+                </header>
+                <div className={`top-grid ${compareMode === "palette" ? "top-grid-palette" : ""}`}>
+                  {renderPaletteSection("contrast")}
+                  {renderCompareModeSelector("compare-mode-selector-mobile")}
+                  {compareMode === "manual" && (
+                    <div className="compare-color-container">
+                      <div className="compare-color-header">
+                        <p className="card-heading">Selected colors</p>
+                        <button className="swap-color-button" onClick={swapSelectedColors} disabled={!selectedContrast}>
+                          <span className="material-symbols-outlined">swap_horiz</span>
+                          Swap
+                        </button>
                       </div>
-                      <section className="preview-section">
-                        <p className="card-heading">Preview</p>
-                        <div
-                          className="color-preview-container"
-                          style={{
-                            backgroundColor: selectedColors[0],
-                            color: selectedColors[1],
-                          }}
-                        >
-                          <div className="preview-topbar">
-                            <span className="preview-status-pill">Live preview</span>
-                          </div>
-                          <div className="preview-hero-row">
-                            <div>
-                              <h3 className="preview-title">Design system card</h3>
-                              <p className="preview-text-24-medium">Large text, 24px medium</p>
-                              <p className="preview-text-19-bold">Large text, 19px bold</p>
-                            </div>
-                            <div className="preview-metric">
-                              <strong>{selectedContrast.contrast.toFixed(1)}</strong>
-                              <span>contrast</span>
-                            </div>
-                          </div>
-                          <div className="preview-content-grid">
-                            <div className="preview-sample-block">
-                              <h4>Small text</h4>
-                              <p className="preview-text-16-medium">Small text, 16px medium weight</p>
-                              <p className="preview-text-16-regular">Small text, 16px regular weight</p>
-                              <p className="preview-text-14-regular">Caption text, 14px regular weight</p>
-                            </div>
-                            <div className="preview-sample-block preview-ui-sample">
-                              <h4>Graphics & UI Elements</h4>
-                              <div className="preview-progress-track">
-                                <div className="preview-progress-fill" style={{ width: `${selectedContrast.contrastProgress}%` }}></div>
-                              </div>
-                              <button
-                                style={{
-                                  backgroundColor: selectedColors[1],
-                                  color: selectedColors[0],
-                                }}
-                              >
-                                {selectedContrast.uiButtonText}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  </div>
-                )}
-
-                {compareMode === "palette" && (
-                  <>
-                    {(!canComparePalette || !activePaletteColor) && (
-                      <div className="quiet-empty-state">
-                        <span className="material-symbols-outlined">ads_click</span>
-                        <p>{canComparePalette ? "Select a color from your palette to compare." : "Add two colors to compare."}</p>
+                      <div className="selected-slot-control">
+                        <button className={activeSelectedIndex === 1 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(1)}>
+                          Text
+                        </button>
+                        <button className={activeSelectedIndex === 0 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(0)}>
+                          Background
+                        </button>
                       </div>
-                    )}
-                    {canComparePalette && activePaletteColor && (
-                      <div className="palette-compare-section">
-                        <div className="palette-compare-intro">
-                          <div>
-                            <p className="card-heading">Palette compare</p>
-                            <p>
-                              Compare every color in your palette against every other color. The highlighted row and column show where{" "}
-                              <strong>
-                                {activePaletteColorName} ({activePaletteColor})
-                              </strong>{" "}
-                              works as either text or background.
-                            </p>
-                          </div>
-                          <div className="palette-compare-legend" aria-label="Palette compare legend">
-                            <span>
-                              <span className="legend-dot legend-dot-pass"></span>
-                              Pass 4.5:1
-                            </span>
-                            <span>
-                              <span className="legend-dot legend-dot-fail"></span>
-                              Fail
-                            </span>
-                          </div>
-                        </div>
-                        <div className="palette-compare-tools">
-                          <label className="palette-pass-switch">
-                            <input type="checkbox" checked={showPassingOnly} onChange={(e) => setShowPassingOnly(e.target.checked)} />
-                            <span className="switch-track" aria-hidden="true">
-                              <span className="switch-thumb"></span>
-                            </span>
-                            <span>Focus passing pairs</span>
-                          </label>
-                        </div>
-                        <div className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""}`}>
-                          <div className="palette-header-row" style={{ gridTemplateColumns: `repeat(${colors.length}, 1fr)` }}>
-                            {colors.map((color, index) => {
-                              const isActiveColor = color === activePaletteColor;
-                              return (
-                                <div
-                                  className={`palette-color-label palette-color-label-top ${isActiveColor ? "palette-color-label-active" : ""}`}
-                                  key={index}
-                                  onClick={() => selectedColor(color)}
-                                >
-                                  <div className="palette-background" style={{ backgroundColor: color }}></div>
-                                  <div className="palette-label-text">
-                                    <p className="palette-label-name">{getColorName(index)}</p>
-                                    <p className="palette-label-hex">{color}</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="palette-sidebar-column">
-                            {colors.map((color, index) => {
-                              const isActiveColor = color === activePaletteColor;
-                              return (
-                                <div
-                                  className={`palette-color-label palette-color-label-side ${isActiveColor ? "palette-color-label-active" : ""}`}
-                                  key={index}
-                                  onClick={() => selectedColor(color)}
-                                >
-                                  <div className="palette-background" style={{ backgroundColor: color }}></div>
-                                  <div className="palette-label-text">
-                                    <p className="palette-label-name">{getColorName(index)}</p>
-                                    <p className="palette-label-hex">{color}</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="palette-main-grid" style={{ gridTemplateColumns: `repeat(${colors.length}, 1fr)` }}>
-                            {colors.map((backgroundColor, backgroundIndex) =>
-                              colors.map((textColor, textIndex) => {
-                                const contrast = getContrast(backgroundColor, textColor);
-                                const passes = contrast >= 4.5;
-                                const sameColor = backgroundColor === textColor;
-                                const isActiveResult = backgroundColor === activePaletteColor || textColor === activePaletteColor;
-                                const isFilteredOut = showPassingOnly && !passes;
-
-                                return (
-                                  <div
-                                    className={`palette-result-cell ${sameColor ? "palette-result-same" : passes ? "palette-result-pass" : "palette-result-fail"} ${
-                                      isActiveResult ? "palette-result-active" : "palette-result-muted"
-                                    } ${isFilteredOut ? "palette-result-filtered" : ""}`}
-                                    key={`${backgroundIndex}-${textIndex}`}
-                                    onClick={() => selectedColor(backgroundColor)}
-                                  >
-                                    <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
-                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
-                                    <small>{contrast.toFixed(1)} : 1</small>
-                                  </div>
-                                );
-                              }),
-                            )}
-                          </div>
-                        </div>
-                        <div className={`palette-compare-mobile-list ${showPassingOnly ? "palette-focus-mode" : ""}`}>
-                          {colors.map((color, index) => {
-                            const contrast = getContrast(activePaletteColor, color);
-                            const passes = contrast >= 4.5;
-                            const sameColor = activePaletteColor === color;
-                            const isFilteredOut = showPassingOnly && !passes;
-
-                            if (isFilteredOut) {
-                              return null;
-                            }
+                      {selectedContrast ? (
+                        <div className="compare-color-controls">
+                          {[
+                            { label: "Text color", color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
+                            { label: "Background color", color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
+                          ].map((selectedColor) => {
+                            const hue = hexToHSL(selectedColor.color).h;
 
                             return (
-                              <button
-                                className={`palette-mobile-pair ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
-                                key={`${activePaletteColor}-${color}-${index}`}
-                                onClick={() => selectedColor(color)}
+                              <div
+                                className={`compare-color-item ${activeSelectedIndex === selectedColor.selectedIndex ? "compare-color-item-active" : ""}`}
+                                key={selectedColor.label}
+                                onClick={() => setActiveSelectedIndex(selectedColor.selectedIndex)}
                               >
-                                <div className="palette-mobile-pair-colors">
-                                  <span style={{ backgroundColor: activePaletteColor }}></span>
-                                  <span style={{ backgroundColor: color }}></span>
+                                <div className="compare-color-title-row">
+                                  <p className="card-heading">{selectedColor.label}</p>
+                                  <span className="selected-chip" aria-hidden={activeSelectedIndex !== selectedColor.selectedIndex}>
+                                    Selected
+                                  </span>
                                 </div>
-                                <div className="palette-mobile-pair-text">
-                                  <strong>{sameColor ? activePaletteColorName : `${activePaletteColorName} + ${getColorName(index)}`}</strong>
-                                  <small>
-                                    {activePaletteColor} / {color}
-                                  </small>
+                                <div className="selected-color-body">
+                                  <div className={selectedColor.className} style={{ backgroundColor: selectedColor.color }}></div>
+                                  <div className="selected-color-edit-panel">
+                                    <div className="selected-color-input-shell">
+                                      <input
+                                        key={selectedColor.color}
+                                        defaultValue={selectedColor.color}
+                                        onBlur={(e) => updateSelectedColor(selectedColor.selectedIndex, e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            updateSelectedColor(selectedColor.selectedIndex, e.target.value);
+                                            e.currentTarget.blur();
+                                          }
+                                        }}
+                                        aria-label={`${selectedColor.label} hex value`}
+                                      />
+                                      <button
+                                        className="copy-selected-color-button"
+                                        onClick={(event) => copyColor(selectedColor.color, event)}
+                                        aria-label={`Copy ${selectedColor.color}`}
+                                      >
+                                        <span className="material-symbols-outlined">{copiedColor === selectedColor.color ? "check" : "content_copy"}</span>
+                                      </button>
+                                    </div>
+                                    <label>
+                                      Hue
+                                      <input
+                                        className="hue-slider"
+                                        type="range"
+                                        min="0"
+                                        max="359"
+                                        value={hue}
+                                        onChange={(e) => updateSelectedColorHue(selectedColor.selectedIndex, e.target.value)}
+                                      />
+                                    </label>
+                                  </div>
                                 </div>
-                                <div className="palette-mobile-pair-result">
-                                  <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
-                                  <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
-                                  <small>{contrast.toFixed(1)} : 1</small>
-                                </div>
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
+                      ) : (
+                        <div className="empty-panel-state">
+                          <p>{canComparePalette ? "No selection yet" : "Add two colors to compare."}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  {renderCompareModeSelector("compare-mode-selector-desktop")}
+                  {compareMode === "manual" && !selectedContrast && (
+                    <div className="select-color-result-container">
+                      <div className="quiet-empty-state">
+                        <span className="material-symbols-outlined">ads_click</span>
+                        <p>{canComparePalette ? "Select two colors from your palette." : "Add two colors to compare."}</p>
                       </div>
-                    )}
-                  </>
-                )}
+                    </div>
+                  )}
+                  {compareMode === "manual" && selectedContrast && (
+                    <div className="select-color-result-container">
+                      <div className="compare-color-section">
+                        <div className="compare-color-text-container">
+                          <p className="compare-info-text card-heading">Contrast</p>
+                          <div className="contrast-ratio-container">
+                            <h2 className="contrast-text">{selectedContrast.contrast.toFixed(1)} : 1</h2>
+                            <span className={`contrast-text-status ${selectedContrast.contrastElements.contrastClass}`}>
+                              <span className="material-symbols-outlined">{selectedContrast.contrastElements.contrastIcon}</span>
+                              {selectedContrast.contrastElements.contrastStatus}
+                            </span>
+                          </div>
+                          <div className="contrast-checker-container">
+                            <div className="contrast-checker-group">
+                              <div className="contrast-checker-text">
+                                <h4>Large text</h4>
+                                <p className={`contrast-check ${selectedContrast.passesLargeAA ? "success" : "error"}`}>
+                                  {selectedContrast.passesLargeAA ? (
+                                    <span className="material-symbols-outlined">check</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined">close</span>
+                                  )}{" "}
+                                  Level AA
+                                </p>
+                                <p className={`contrast-check ${selectedContrast.passesLargeAAA ? "success" : "error"}`}>
+                                  {selectedContrast.passesLargeAAA ? (
+                                    <span className="material-symbols-outlined">check</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined">close</span>
+                                  )}{" "}
+                                  Level AAA
+                                </p>
+                              </div>
+                              <p className="usage-note">
+                                {selectedContrast.passesLargeAA
+                                  ? "Can be used for large headings and bold display text."
+                                  : "Avoid for large text unless one of the colors is adjusted."}
+                              </p>
+                            </div>
+                            <div className="contrast-checker-group">
+                              <div className="contrast-checker-text">
+                                <h4>Small text</h4>
+                                <p className={`contrast-check ${selectedContrast.passesSmallAA ? "success" : "error"}`}>
+                                  {selectedContrast.passesSmallAA ? (
+                                    <span className="material-symbols-outlined">check</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined">close</span>
+                                  )}{" "}
+                                  Level AA
+                                </p>
+                                <p className={`contrast-check ${selectedContrast.passesSmallAAA ? "success" : "error"}`}>
+                                  {selectedContrast.passesSmallAAA ? (
+                                    <span className="material-symbols-outlined">check</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined">close</span>
+                                  )}{" "}
+                                  Level AAA
+                                </p>
+                              </div>
+                              <p className="usage-note">
+                                {selectedContrast.passesSmallAA
+                                  ? "Can be used for body copy, labels, and smaller interface text."
+                                  : "Avoid for body copy, labels, form text, and small UI text."}
+                              </p>
+                            </div>
+                            <div className="contrast-checker-group">
+                              <div className="contrast-checker-text contrast-checker-text-single">
+                                <h4>Graphics & UI Elements</h4>
+                                <p className={`contrast-check ${selectedContrast.passesGraphicsUI ? "success" : "error"}`}>
+                                  {selectedContrast.passesGraphicsUI ? (
+                                    <span className="material-symbols-outlined">check</span>
+                                  ) : (
+                                    <span className="material-symbols-outlined">close</span>
+                                  )}{" "}
+                                  Level AA
+                                </p>
+                              </div>
+                              <p className="usage-note">
+                                {selectedContrast.passesGraphicsUI
+                                  ? "Can be used for icons, button boundaries, controls, and visual indicators."
+                                  : "Avoid for icons, button states, focus indicators, and important graphics."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <section className="preview-section">
+                          <p className="card-heading">Preview</p>
+                          <div
+                            className="color-preview-container"
+                            style={{
+                              backgroundColor: selectedColors[0],
+                              color: selectedColors[1],
+                            }}
+                          >
+                            <div className="preview-topbar">
+                              <span className="preview-status-pill">Live preview</span>
+                            </div>
+                            <div className="preview-hero-row">
+                              <div>
+                                <h3 className="preview-title">Design system card</h3>
+                                <p className="preview-text-24-medium">Large text, 24px medium</p>
+                                <p className="preview-text-19-bold">Large text, 19px bold</p>
+                              </div>
+                              <div className="preview-metric">
+                                <strong>{selectedContrast.contrast.toFixed(1)}</strong>
+                                <span>contrast</span>
+                              </div>
+                            </div>
+                            <div className="preview-content-grid">
+                              <div className="preview-sample-block">
+                                <h4>Small text</h4>
+                                <p className="preview-text-16-medium">Small text, 16px medium weight</p>
+                                <p className="preview-text-16-regular">Small text, 16px regular weight</p>
+                                <p className="preview-text-14-regular">Caption text, 14px regular weight</p>
+                              </div>
+                              <div className="preview-sample-block preview-ui-sample">
+                                <h4>Graphics & UI Elements</h4>
+                                <div className="preview-progress-track">
+                                  <div className="preview-progress-fill" style={{ width: `${selectedContrast.contrastProgress}%` }}></div>
+                                </div>
+                                <button
+                                  style={{
+                                    backgroundColor: selectedColors[1],
+                                    color: selectedColors[0],
+                                  }}
+                                >
+                                  {selectedContrast.uiButtonText}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+                    </div>
+                  )}
+
+                  {compareMode === "palette" && (
+                    <>
+                      {(!canComparePalette || !activePaletteColor) && (
+                        <div className="quiet-empty-state">
+                          <span className="material-symbols-outlined">ads_click</span>
+                          <p>{canComparePalette ? "Select a color from your palette to compare." : "Add two colors to compare."}</p>
+                        </div>
+                      )}
+                      {canComparePalette && activePaletteColor && (
+                        <div className="palette-compare-section">
+                          <div className="palette-compare-intro">
+                            <div>
+                              <p className="card-heading">Palette compare</p>
+                              <p>
+                                Compare every color in your palette against every other color. The highlighted row and column show where{" "}
+                                <strong>
+                                  {activePaletteColorName} ({activePaletteColor})
+                                </strong>{" "}
+                                works as either text or background.
+                              </p>
+                            </div>
+                            <div className="palette-compare-legend" aria-label="Palette compare legend">
+                              <span>
+                                <span className="legend-dot legend-dot-pass"></span>
+                                Pass 4.5:1
+                              </span>
+                              <span>
+                                <span className="legend-dot legend-dot-fail"></span>
+                                Fail
+                              </span>
+                            </div>
+                          </div>
+                          <div className="palette-compare-tools">
+                            <label className="palette-pass-switch">
+                              <input type="checkbox" checked={showPassingOnly} onChange={(e) => setShowPassingOnly(e.target.checked)} />
+                              <span className="switch-track" aria-hidden="true">
+                                <span className="switch-thumb"></span>
+                              </span>
+                              <span>Focus passing pairs</span>
+                            </label>
+                          </div>
+                          <div className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""}`}>
+                            <div className="palette-header-row" style={{ gridTemplateColumns: `repeat(${colors.length}, 1fr)` }}>
+                              {colors.map((color, index) => {
+                                const isActiveColor = color === activePaletteColor;
+                                return (
+                                  <div
+                                    className={`palette-color-label palette-color-label-top ${isActiveColor ? "palette-color-label-active" : ""}`}
+                                    key={index}
+                                    onClick={() => selectedColor(color)}
+                                  >
+                                    <div className="palette-background" style={{ backgroundColor: color }}></div>
+                                    <div className="palette-label-text">
+                                      <p className="palette-label-name">{getColorName(index)}</p>
+                                      <p className="palette-label-hex">{color}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="palette-sidebar-column">
+                              {colors.map((color, index) => {
+                                const isActiveColor = color === activePaletteColor;
+                                return (
+                                  <div
+                                    className={`palette-color-label palette-color-label-side ${isActiveColor ? "palette-color-label-active" : ""}`}
+                                    key={index}
+                                    onClick={() => selectedColor(color)}
+                                  >
+                                    <div className="palette-background" style={{ backgroundColor: color }}></div>
+                                    <div className="palette-label-text">
+                                      <p className="palette-label-name">{getColorName(index)}</p>
+                                      <p className="palette-label-hex">{color}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="palette-main-grid" style={{ gridTemplateColumns: `repeat(${colors.length}, 1fr)` }}>
+                              {colors.map((backgroundColor, backgroundIndex) =>
+                                colors.map((textColor, textIndex) => {
+                                  const contrast = getContrast(backgroundColor, textColor);
+                                  const passes = contrast >= 4.5;
+                                  const sameColor = backgroundColor === textColor;
+                                  const isActiveResult = backgroundColor === activePaletteColor || textColor === activePaletteColor;
+                                  const isFilteredOut = showPassingOnly && !passes;
+
+                                  return (
+                                    <div
+                                      className={`palette-result-cell ${sameColor ? "palette-result-same" : passes ? "palette-result-pass" : "palette-result-fail"} ${
+                                        isActiveResult ? "palette-result-active" : "palette-result-muted"
+                                      } ${isFilteredOut ? "palette-result-filtered" : ""}`}
+                                      key={`${backgroundIndex}-${textIndex}`}
+                                      onClick={() => selectedColor(backgroundColor)}
+                                    >
+                                      <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
+                                      <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                      <small>{contrast.toFixed(1)} : 1</small>
+                                    </div>
+                                  );
+                                }),
+                              )}
+                            </div>
+                          </div>
+                          <div className={`palette-compare-mobile-list ${showPassingOnly ? "palette-focus-mode" : ""}`}>
+                            {colors.map((color, index) => {
+                              const contrast = getContrast(activePaletteColor, color);
+                              const passes = contrast >= 4.5;
+                              const sameColor = activePaletteColor === color;
+                              const isFilteredOut = showPassingOnly && !passes;
+
+                              if (isFilteredOut) {
+                                return null;
+                              }
+
+                              return (
+                                <button
+                                  className={`palette-mobile-pair ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
+                                  key={`${activePaletteColor}-${color}-${index}`}
+                                  onClick={() => selectedColor(color)}
+                                >
+                                  <div className="palette-mobile-pair-colors">
+                                    <span style={{ backgroundColor: activePaletteColor }}></span>
+                                    <span style={{ backgroundColor: color }}></span>
+                                  </div>
+                                  <div className="palette-mobile-pair-text">
+                                    <strong>{sameColor ? activePaletteColorName : `${activePaletteColorName} + ${getColorName(index)}`}</strong>
+                                    <small>
+                                      {activePaletteColor} / {color}
+                                    </small>
+                                  </div>
+                                  <div className="palette-mobile-pair-result">
+                                    <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
+                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                    <small>{contrast.toFixed(1)} : 1</small>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
           ) : (
             renderScaleGeneratorPage()
           )}

@@ -56,8 +56,27 @@ body.modal-open {
 }
 
 .logo {
-  font-size: 2rem;
+  display: block;
+  font-size: 2.6rem;
   font-weight: 600;
+  line-height: 1;
+}
+
+.logo-container {
+  --brand-mark-size: 2rem;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand-mark {
+  display: block;
+  width: var(--brand-mark-size);
+  height: var(--brand-mark-size);
+  color: var(--surface-color);
+  flex: 0 0 auto;
+  transform: translateY(0.02em);
 }
 
 .navigation-container {
