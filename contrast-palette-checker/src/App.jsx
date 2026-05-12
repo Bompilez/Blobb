@@ -804,7 +804,7 @@ function App() {
   function renderScaleGeneratorPage() {
     return (
       <div className="scale-generator-section">
-        <header className="intro-section scale-intro-section">
+        <header className="intro-section">
           <div>
             <h1>Generate a clean color scale from one color</h1>
             <p>Turn a base color into a light-to-dark UI scale for backgrounds, borders, hover states, and readable interface palettes.</p>
@@ -813,7 +813,7 @@ function App() {
         <div className="scale-generator-layout">
           {renderPaletteSection("scale")}
           <section className="scale-output-panel">
-            <div className="scale-panel-header">
+            <div className="scale-panel-header full-width">
               <div>
                 <p className="card-heading">{canGenerateScale ? `${scaleName} scale` : "Generated scale"}</p>
                 <p className="scale-panel-subtitle">

@@ -61,9 +61,10 @@ body.modal-open {
 }
 
 .navigation-container {
-  background-color: var(--purple);
+  background-color: #5e5aa3;
   color: var(--surface-color);
   padding: var(--space-xl);
+  border-bottom: solid var(--purple) 3px;
 }
 
 .navigation-content {
@@ -144,7 +145,7 @@ body.modal-open {
   max-width: 720px;
   margin-bottom: var(--space-md);
   font-size: 2.5rem;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .intro-section p:last-child {
@@ -248,7 +249,7 @@ body.modal-open {
 
 .palette-toolbar {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-lg);
 }
@@ -1756,9 +1757,17 @@ body.modal-open {
 
 .scale-generator-layout {
   display: grid;
-  grid-template-columns: 1fr;
-  align-items: start;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-lg);
+  align-items: start;
+}
+
+.color-palette-section {
+  grid-column: 1;
+}
+
+.scale-output-panel {
+  grid-column: 1 / -1;
 }
 
 .scale-output-panel {
@@ -1900,7 +1909,7 @@ body.modal-open {
 .site-footer {
   margin-top: var(--space-2xl);
   border-top: var(--border-default);
-  background-color: var(--surface-color);
+  background-color: var(--purple);
 }
 
 .footer-content {
