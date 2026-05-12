@@ -353,6 +353,7 @@ function App() {
   const cleanedEditColorInput = normalizeHex(editColorInput);
   const canSaveEditColor = isValidHex(cleanedEditColorInput);
   const canComparePalette = colors.length >= 2;
+  const isPaletteEmpty = colors.length === 0;
 
   useEffect(() => {
     return () => {
@@ -720,7 +721,6 @@ function App() {
             <div>
               <p className="card-heading">Your palette</p>
               <p className="palette-count">{colors.length}/{MAX_PALETTE_COLORS} colors</p>
-              {isScaleMode && <p className="scale-panel-subtitle">Select a color here to generate its light-to-dark scale.</p>}
             </div>
             <div className="add-color-control">
               <input
@@ -752,7 +752,14 @@ function App() {
               </button>
             </div>
           </div>
+          {isScaleMode && <p className="palette-helper-text">Select a color here to generate its light-to-dark scale.</p>}
           <div className="added-colors-container">
+            {isPaletteEmpty && (
+              <div className="palette-empty-callout">
+                <span className="material-symbols-outlined">add_circle</span>
+                <p>Add your first color here.</p>
+              </div>
+            )}
             {colors.map((color, index) => {
               const isSelected = isScaleMode ? activePaletteColor === color : selectedColors.includes(color);
               const isBackgroundColor = selectedColors[0] === color;
@@ -803,7 +810,7 @@ function App() {
 
   function renderScaleGeneratorPage() {
     return (
-      <div className="scale-generator-section">
+      <div className={`scale-generator-section ${isPaletteEmpty ? "scale-generator-section-palette-empty" : ""}`}>
         <header className="intro-section">
           <div>
             <h1>Generate a clean color scale from one color</h1>
@@ -812,7 +819,7 @@ function App() {
         </header>
         <div className="scale-generator-layout">
           {renderPaletteSection("scale")}
-          <section className="scale-output-panel">
+          <section className="scale-output-panel" aria-disabled={isPaletteEmpty}>
             <div className="scale-panel-header full-width">
               <div>
                 <p className="card-heading">{canGenerateScale ? `${scaleName} scale` : "Generated scale"}</p>
@@ -867,6 +874,7 @@ function App() {
           type="button"
           className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
           onClick={() => changeCompareMode("manual")}
+          disabled={isPaletteEmpty}
         >
           Manual compare
         </button>
@@ -874,6 +882,7 @@ function App() {
           type="button"
           className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
           onClick={() => changeCompareMode("palette")}
+          disabled={isPaletteEmpty}
         >
           Palette compare
         </button>
@@ -902,7 +911,7 @@ function App() {
         <div className="content">
           {route === "contrast" ? (
           <div>
-            <div className="contrast-checker-section">
+            <div className={`contrast-checker-section ${isPaletteEmpty ? "contrast-checker-section-palette-empty" : ""}`}>
               <header className="intro-section">
                 <div>
                   <div>
