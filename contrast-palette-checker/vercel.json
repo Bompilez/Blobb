@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/scale-generator",
+      "destination": "/index.html"
+    }
+  ]
+}

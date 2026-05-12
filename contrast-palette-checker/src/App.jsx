@@ -5,6 +5,20 @@ import "./App.css";
 
 const DEFAULT_COLORS = [];
 const DEFAULT_COLOR_NAMES = [];
+const MAX_PALETTE_COLORS = 11;
+const SCALE_STEPS = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
+const SCALE_CHROMA_FACTORS = [0.16, 0.26, 0.42, 0.62, 0.82, 1, 0.92, 0.78, 0.62, 0.46, 0.32];
+const CONTRAST_PAGE_META = {
+  title: "Blobb.net Contrast Palette Checker | WCAG Color Contrast Tool",
+  description:
+    "Check color contrast for UI palettes against WCAG guidelines. Compare foreground and background colors, scan full palettes, and preview readable interface combinations.",
+  canonical: "https://blobb.net/",
+};
+const SCALE_PAGE_META = {
+  title: "Blobb.net Color Scale Generator | UI Palette Tool",
+  description: "Generate a light-to-dark UI color scale from one base color, then copy CSS variables or use the palette for contrast checks.",
+  canonical: "https://blobb.net/scale-generator",
+};
 
 // ===== UTIL FUNCTIONS =====
 function isValidHex(input) {
@@ -90,7 +104,9 @@ function getContrast(colorA, colorB) {
 
 function rgbToHex(rgb) {
   function toHex(channel) {
-    return channel.toString(16).padStart(2, "0");
+    return Math.round(Math.min(Math.max(channel, 0), 255))
+      .toString(16)
+      .padStart(2, "0");
   }
 
   return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
@@ -166,8 +182,149 @@ function hslToHex(hue, saturation, lightness) {
   });
 }
 
+function getRouteFromPath() {
+  if (typeof window !== "undefined" && window.location.pathname === "/scale-generator") {
+    return "scale";
+  }
+
+  return "contrast";
+}
+
+function setMetaContent(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) {
+    element.setAttribute("content", value);
+  }
+}
+
+function srgbToLinear(channel) {
+  const value = channel / 255;
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function linearToSrgb(channel) {
+  const value = channel <= 0.0031308 ? channel * 12.92 : 1.055 * channel ** (1 / 2.4) - 0.055;
+  return value * 255;
+}
+
+function hexToOklch(color) {
+  const { r, g, b } = hexToRGB(color);
+  const red = srgbToLinear(r);
+  const green = srgbToLinear(g);
+  const blue = srgbToLinear(b);
+
+  const l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
+  const m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
+  const s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
+
+  const lRoot = Math.cbrt(l);
+  const mRoot = Math.cbrt(m);
+  const sRoot = Math.cbrt(s);
+
+  const lightness = 0.2104542553 * lRoot + 0.793617785 * mRoot - 0.0040720468 * sRoot;
+  const a = 1.9779984951 * lRoot - 2.428592205 * mRoot + 0.4505937099 * sRoot;
+  const oklabB = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.808675766 * sRoot;
+  const chroma = Math.sqrt(a * a + oklabB * oklabB);
+  let hue = (Math.atan2(oklabB, a) * 180) / Math.PI;
+
+  if (hue < 0) {
+    hue += 360;
+  }
+
+  return { lightness, chroma, hue };
+}
+
+function oklchToRgb(lightness, chroma, hue) {
+  const hueRadians = (hue * Math.PI) / 180;
+  const a = chroma * Math.cos(hueRadians);
+  const b = chroma * Math.sin(hueRadians);
+
+  const lRoot = lightness + 0.3963377774 * a + 0.2158037573 * b;
+  const mRoot = lightness - 0.1055613458 * a - 0.0638541728 * b;
+  const sRoot = lightness - 0.0894841775 * a - 1.291485548 * b;
+
+  const l = lRoot ** 3;
+  const m = mRoot ** 3;
+  const s = sRoot ** 3;
+
+  return {
+    r: linearToSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    g: linearToSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    b: linearToSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  };
+}
+
+function isRgbInGamut(rgb) {
+  return rgb.r >= 0 && rgb.r <= 255 && rgb.g >= 0 && rgb.g <= 255 && rgb.b >= 0 && rgb.b <= 255;
+}
+
+function oklchToHexInGamut(lightness, chroma, hue) {
+  let adjustedChroma = chroma;
+  let rgb = oklchToRgb(lightness, adjustedChroma, hue);
+
+  for (let i = 0; i < 24 && !isRgbInGamut(rgb); i += 1) {
+    adjustedChroma *= 0.88;
+    rgb = oklchToRgb(lightness, adjustedChroma, hue);
+  }
+
+  return rgbToHex(rgb);
+}
+
+function interpolateLightness(baseLightness, index) {
+  if (index < 5) {
+    const distanceFromBase = 5 - index;
+    return baseLightness + (0.98 - baseLightness) * (distanceFromBase / 5);
+  }
+
+  if (index === 5) {
+    return baseLightness;
+  }
+
+  const distanceFromBase = index - 5;
+  return baseLightness - (baseLightness - 0.14) * (distanceFromBase / 5);
+}
+
+function getColorScale(baseColor) {
+  const baseOklch = hexToOklch(baseColor);
+
+  return SCALE_STEPS.map((step, index) => {
+    if (step === "500") {
+      return { step, hex: baseColor };
+    }
+
+    const lightness = Math.min(Math.max(interpolateLightness(baseOklch.lightness, index), 0.08), 0.99);
+    const chroma = baseOklch.chroma * SCALE_CHROMA_FACTORS[index];
+    const hex = oklchToHexInGamut(lightness, chroma, baseOklch.hue);
+
+    return { step, hex };
+  });
+}
+
+function getReadableTextColor(color) {
+  return getContrast(color, "#ffffff") >= getContrast(color, "#111827") ? "#ffffff" : "#111827";
+}
+
+function getScaleName(name) {
+  return name.trim() || "Primary";
+}
+
+function getCssVariableName(name) {
+  return getScaleName(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "primary";
+}
+
+function getScaleCssVariables(scaleColors, name) {
+  const variableName = getCssVariableName(name);
+  const variableLines = scaleColors.map((color) => `  --${variableName}-${color.step}: ${color.hex};`);
+
+  return [":root {", ...variableLines, "}"].join("\n");
+}
+
 // ===== APP =====
 function App() {
+  const [route, setRoute] = useState(getRouteFromPath);
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -187,9 +344,12 @@ function App() {
   const activePaletteColor = selectedColors[0];
   const activePaletteColorIndex = colors.findIndex((color) => color === activePaletteColor);
   const activePaletteColorName = activePaletteColorIndex >= 0 ? getColorName(activePaletteColorIndex) : "";
+  const canGenerateScale = Boolean(activePaletteColor) && isValidHex(activePaletteColor);
+  const scaleColors = canGenerateScale ? getColorScale(activePaletteColor) : [];
+  const scaleName = getScaleName(activePaletteColorName);
   const editingColor = editingColorIndex !== null ? colors[editingColorIndex] : "";
   const cleanedColorInput = normalizeHex(colorInput);
-  const canAddColor = colors.length < 10 && isValidHex(cleanedColorInput);
+  const canAddColor = colors.length < MAX_PALETTE_COLORS && isValidHex(cleanedColorInput);
   const cleanedEditColorInput = normalizeHex(editColorInput);
   const canSaveEditColor = isValidHex(cleanedEditColorInput);
   const canComparePalette = colors.length >= 2;
@@ -204,6 +364,35 @@ function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    function syncRoute() {
+      setRoute(getRouteFromPath());
+    }
+
+    window.addEventListener("popstate", syncRoute);
+
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    const meta = route === "scale" ? SCALE_PAGE_META : CONTRAST_PAGE_META;
+    const canonical = document.querySelector('link[rel="canonical"]');
+
+    document.title = meta.title;
+    setMetaContent('meta[name="description"]', meta.description);
+    setMetaContent('meta[property="og:title"]', meta.title);
+    setMetaContent('meta[property="og:description"]', meta.description);
+    setMetaContent('meta[property="og:url"]', meta.canonical);
+    setMetaContent('meta[name="twitter:title"]', meta.title);
+    setMetaContent('meta[name="twitter:description"]', meta.description);
+
+    if (canonical) {
+      canonical.setAttribute("href", meta.canonical);
+    }
+  }, [route]);
 
   useEffect(() => {
     document.body.classList.toggle("modal-open", editingColorIndex !== null);
@@ -355,7 +544,7 @@ function App() {
     if (!isValidHex(input)) {
       return;
     }
-    if (colors.length >= 10) {
+    if (colors.length >= MAX_PALETTE_COLORS) {
       return;
     }
 
@@ -363,8 +552,15 @@ function App() {
 
     setColors(nextColors);
     setColorNames([...colorNames, colorNameInput.trim()]);
+    if (route === "scale") {
+      setActiveSelectedIndex(0);
+    }
     setSelectedColors((currentSelectedColors) => {
       const validSelectedColors = currentSelectedColors.filter((color) => nextColors.includes(color));
+
+      if (route === "scale") {
+        return [input];
+      }
 
       if (compareMode === "palette") {
         return validSelectedColors.length > 0 ? validSelectedColors.slice(0, 1) : [input];
@@ -442,12 +638,23 @@ function App() {
     setActiveSelectedIndex(activeSelectedIndex === 0 ? 1 : 0);
   }
 
-  async function copyColor(color, event) {
+  function navigateTo(nextRoute) {
+    const path = nextRoute === "scale" ? "/scale-generator" : "/";
+
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+    }
+
+    setRoute(nextRoute);
+    window.scrollTo({ top: 0 });
+  }
+
+  async function copyText(text, copiedKey, event) {
     event?.stopPropagation();
 
     try {
-      await navigator.clipboard.writeText(color);
-      setCopiedColor(color);
+      await navigator.clipboard.writeText(text);
+      setCopiedColor(copiedKey);
     } catch {
       setCopiedColor("");
       return;
@@ -461,6 +668,196 @@ function App() {
       setCopiedColor("");
       copiedColorTimeoutRef.current = null;
     }, 1200);
+  }
+
+  async function copyColor(color, event) {
+    await copyText(color, color, event);
+  }
+
+  async function copyScaleCss(event) {
+    if (!canGenerateScale) {
+      return;
+    }
+
+    await copyText(getScaleCssVariables(scaleColors, scaleName), "scale-css", event);
+  }
+
+  async function copyDatasetColor(event) {
+    const color = event.currentTarget.dataset.color;
+
+    if (!color) {
+      return;
+    }
+
+    await copyColor(color, event);
+  }
+
+  function useScaleInContrastChecker() {
+    if (!canGenerateScale) {
+      return;
+    }
+
+    setColors(scaleColors.map((color) => color.hex));
+    setColorNames(scaleColors.map((color) => `${scaleName} ${color.step}`));
+    setSelectedColors([scaleColors[9].hex, scaleColors[0].hex]);
+    setActiveSelectedIndex(1);
+    setCompareMode("manual");
+    navigateTo("contrast");
+  }
+
+  function selectScaleBaseColor(color) {
+    setSelectedColors([color]);
+    setActiveSelectedIndex(0);
+  }
+
+  function renderPaletteSection(mode = "contrast") {
+    const isScaleMode = mode === "scale";
+
+    return (
+      <div className={`color-palette-section ${isScaleMode ? "scale-palette-section" : ""}`}>
+        <div className="color-palette-container">
+          <div className="palette-toolbar">
+            <div>
+              <p className="card-heading">Your palette</p>
+              <p className="palette-count">{colors.length}/{MAX_PALETTE_COLORS} colors</p>
+              {isScaleMode && <p className="scale-panel-subtitle">Select a color here to generate its light-to-dark scale.</p>}
+            </div>
+            <div className="add-color-control">
+              <input
+                className="color-name-input"
+                placeholder="Color name"
+                value={colorNameInput}
+                onChange={(e) => setColorNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    addColor();
+                  }
+                }}
+              />
+              <div className="hex-input-shell">
+                <span>#</span>
+                <input
+                  placeholder="7c3aed"
+                  value={colorInput}
+                  onChange={(e) => setColorInput(e.target.value.replace(/^#+/, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      addColor();
+                    }
+                  }}
+                />
+              </div>
+              <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
+                Add
+              </button>
+            </div>
+          </div>
+          <div className="added-colors-container">
+            {colors.map((color, index) => {
+              const isSelected = isScaleMode ? activePaletteColor === color : selectedColors.includes(color);
+              const isBackgroundColor = selectedColors[0] === color;
+              const isTextColor = selectedColors[1] === color;
+              const handleClick = isScaleMode ? () => selectScaleBaseColor(color) : () => handlePaletteColorClick(color);
+              const handleDoubleClick = isScaleMode ? () => selectScaleBaseColor(color) : () => handlePaletteColorDoubleClick(color);
+
+              return (
+                <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
+                  <p className="palette-color-name">{getColorName(index)}</p>
+                  <div className="palette-preview-shell">
+                    <div
+                      className={`color-preview ${isSelected ? "selected" : ""}`}
+                      style={{ backgroundColor: color }}
+                      onClick={handleClick}
+                      onDoubleClick={handleDoubleClick}
+                    ></div>
+                    {isScaleMode && isSelected && (
+                      <div className="palette-swatch-tags">
+                        <span>Base</span>
+                      </div>
+                    )}
+                    {!isScaleMode && compareMode === "manual" && (isBackgroundColor || isTextColor) && (
+                      <div className="palette-swatch-tags">
+                        {isBackgroundColor && <span>Bg</span>}
+                        {isTextColor && <span>Text</span>}
+                      </div>
+                    )}
+                    <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                      <span className="material-symbols-outlined">edit</span>
+                    </button>
+                    <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
+                      <span className="material-symbols-outlined">close</span>
+                    </button>
+                  </div>
+                  <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
+                    <span>{color}</span>
+                    <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderScaleGeneratorPage() {
+    return (
+      <div className="scale-generator-section">
+        <header className="intro-section scale-intro-section">
+          <div>
+            <h1>Generate a clean color scale from one color</h1>
+            <p>Turn a base color into a light-to-dark UI scale for backgrounds, borders, hover states, and readable interface palettes.</p>
+          </div>
+        </header>
+        <div className="scale-generator-layout">
+          {renderPaletteSection("scale")}
+          <section className="scale-output-panel">
+            <div className="scale-panel-header">
+              <div>
+                <p className="card-heading">{canGenerateScale ? `${scaleName} scale` : "Generated scale"}</p>
+                <p className="scale-panel-subtitle">
+                  {canGenerateScale ? `${activePaletteColor} is the 500 step. Generated from the selected palette color.` : "Select or add a palette color to generate a scale."}
+                </p>
+              </div>
+              <span className="scale-method-pill">OKLCH</span>
+            </div>
+            <div className="scale-actions scale-output-actions">
+              <button className="scale-action-button" onClick={copyScaleCss} disabled={!canGenerateScale}>
+                <span className="material-symbols-outlined">{copiedColor === "scale-css" ? "check" : "content_copy"}</span>
+                Copy CSS variables
+              </button>
+              <button className="scale-action-button scale-action-primary" onClick={useScaleInContrastChecker} disabled={!canGenerateScale}>
+                <span className="material-symbols-outlined">palette</span>
+                Use scale in contrast checker
+              </button>
+            </div>
+            {canGenerateScale ? (
+              <div className="scale-swatch-list">
+                {scaleColors.map((color) => (
+                  <button
+                    className="scale-swatch-row"
+                    key={color.step}
+                    data-color={color.hex}
+                    style={{ backgroundColor: color.hex, color: getReadableTextColor(color.hex) }}
+                    onClick={copyDatasetColor}
+                  >
+                    <span className="scale-swatch-name">{scaleName} {color.step}</span>
+                    <span className="scale-swatch-hex">{color.hex}</span>
+                    <span className="material-symbols-outlined">{copiedColor === color.hex ? "check" : "content_copy"}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-panel-state">
+                <span className="material-symbols-outlined">palette</span>
+                <p>Add a color above, then select it to generate a light-to-dark scale.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    );
   }
 
   function renderCompareModeSelector(className = "") {
@@ -491,11 +888,19 @@ function App() {
           <div className="logo-container">
             <span className="logo">Blobb.net</span>
           </div>
-          <div className="navigation-anchor-items"></div>
+          <div className="navigation-anchor-items">
+            <button className={`navigation-link ${route === "contrast" ? "navigation-link-active" : ""}`} onClick={() => navigateTo("contrast")}>
+              Contrast Checker
+            </button>
+            <button className={`navigation-link ${route === "scale" ? "navigation-link-active" : ""}`} onClick={() => navigateTo("scale")}>
+              Scale Generator
+            </button>
+          </div>
         </div>
       </nav>
       <section className="section-width">
         <div className="content">
+          {route === "contrast" ? (
           <div>
             <div className="contrast-checker-section">
               <header className="intro-section">
@@ -514,81 +919,7 @@ function App() {
                 </div>
               </header>
               <div className={`top-grid ${compareMode === "palette" ? "top-grid-palette" : ""}`}>
-                <div className="color-palette-section">
-                  <div className="color-palette-container">
-                    <div className="palette-toolbar">
-                      <div>
-                        <p className="card-heading">Your palette</p>
-                        <p className="palette-count">{colors.length}/10 colors</p>
-                      </div>
-                      <div className="add-color-control">
-                        <input
-                          className="color-name-input"
-                          placeholder="Color name"
-                          value={colorNameInput}
-                          onChange={(e) => setColorNameInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              addColor();
-                            }
-                          }}
-                        />
-                        <div className="hex-input-shell">
-                          <span>#</span>
-                          <input
-                            placeholder="7c3aed"
-                            value={colorInput}
-                            onChange={(e) => setColorInput(e.target.value.replace(/^#+/, ""))}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                addColor();
-                              }
-                            }}
-                          />
-                        </div>
-                        <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                    <div className="added-colors-container">
-                      {colors.map((color, index) => {
-                        const isSelected = selectedColors.includes(color);
-                        const isBackgroundColor = selectedColors[0] === color;
-                        const isTextColor = selectedColors[1] === color;
-                        return (
-                          <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
-                            <p className="palette-color-name">{getColorName(index)}</p>
-                            <div className="palette-preview-shell">
-                              <div
-                                className={`color-preview ${isSelected ? "selected" : ""}`}
-                                style={{ backgroundColor: color }}
-                                onClick={() => handlePaletteColorClick(color)}
-                                onDoubleClick={() => handlePaletteColorDoubleClick(color)}
-                              ></div>
-                              {compareMode === "manual" && (isBackgroundColor || isTextColor) && (
-                                <div className="palette-swatch-tags">
-                                  {isBackgroundColor && <span>Bg</span>}
-                                  {isTextColor && <span>Text</span>}
-                                </div>
-                              )}
-                              <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
-                                <span className="material-symbols-outlined">edit</span>
-                              </button>
-                              <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
-                                <span className="material-symbols-outlined">close</span>
-                              </button>
-                            </div>
-                            <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
-                              <span>{color}</span>
-                              <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                {renderPaletteSection("contrast")}
                 {renderCompareModeSelector("compare-mode-selector-mobile")}
                 {compareMode === "manual" && (
                   <div className="compare-color-container">
@@ -970,6 +1301,9 @@ function App() {
               </div>
             </div>
           </div>
+          ) : (
+            renderScaleGeneratorPage()
+          )}
         </div>
       </section>
       {editingColorIndex !== null && (
