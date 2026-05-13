@@ -88,12 +88,50 @@ function getContrast(colorA, colorB) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+function getReadableTextColor(hex) {
+  if (!isValidHex(hex)) {
+    return "#111827";
+  }
+
+  const lum = getLuminance(hexToRGB(hex));
+  return lum > 0.45 ? "#111827" : "#ffffff";
+}
+
 function rgbToHex(rgb) {
   function toHex(channel) {
     return channel.toString(16).padStart(2, "0");
   }
 
   return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+}
+
+function mixWithWhiteChannel(channel, t) {
+  return Math.round(channel + (255 - channel) * t);
+}
+
+function generateTints(hex, count, maxT = 0.8) {
+  if (!isValidHex(hex)) {
+    return [];
+  }
+
+  const safeCount = Math.max(2, Math.min(10, Number(count) || 5));
+  const { r, g, b } = hexToRGB(hex);
+
+  const items = [{ label: "Base", t: 0, hex }];
+  const steps = safeCount - 1;
+
+  for (let i = 1; i <= steps; i++) {
+    const t = (i / steps) * maxT;
+    const tinted = rgbToHex({
+      r: mixWithWhiteChannel(r, t),
+      g: mixWithWhiteChannel(g, t),
+      b: mixWithWhiteChannel(b, t),
+    });
+
+    items.push({ label: `${Math.round(t * 100)}%`, t, hex: tinted });
+  }
+
+  return items;
 }
 
 function hexToHSL(color) {
@@ -179,6 +217,7 @@ function App() {
   const [editColorInput, setEditColorInput] = useState("");
   const [editColorNameInput, setEditColorNameInput] = useState("");
   const [copiedColor, setCopiedColor] = useState("");
+  const [scaleSteps, setScaleSteps] = useState(5);
   const [showPassingOnly, setShowPassingOnly] = useState(false);
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
@@ -194,6 +233,9 @@ function App() {
   const canSaveEditColor = isValidHex(cleanedEditColorInput);
   const canComparePalette = colors.length >= 2;
   const isPaletteEmpty = colors.length === 0;
+  const scaleBaseColor = typeof activePaletteColor === "string" ? activePaletteColor : "";
+  const canGenerateScale = isValidHex(scaleBaseColor);
+  const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, scaleSteps) : [];
 
   useEffect(() => {
     return () => {
@@ -722,6 +764,61 @@ function App() {
                   </div>
                 )}
               </div>
+
+              <section className="scale-generator-panel" aria-label="Scale generator">
+                <div className="scale-generator-header">
+                  <div>
+                    <p className="card-heading">Scale generator</p>
+                    <p className="scale-generator-subtitle">
+                      {canGenerateScale ? (
+                        <>
+                          Generating tints from <span className="mono">{scaleBaseColor}</span>.
+                        </>
+                      ) : (
+                        "Select a color (Background) to generate its tint scale."
+                      )}
+                    </p>
+                  </div>
+                  <label className="scale-steps-control">
+                    Steps
+                    <input
+                      type="range"
+                      min="2"
+                      max="10"
+                      value={scaleSteps}
+                      onChange={(e) => setScaleSteps(Number(e.target.value))}
+                      disabled={!canGenerateScale}
+                      aria-label="Scale steps"
+                    />
+                    <span className="scale-steps-value">{scaleSteps}</span>
+                  </label>
+                </div>
+
+                {canGenerateScale ? (
+                  <div className="scale-swatch-grid">
+                    {scaleColors.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className="scale-swatch-tile"
+                        style={{ backgroundColor: item.hex, color: getReadableTextColor(item.hex) }}
+                        onClick={(e) => copyColor(item.hex, e)}
+                      >
+                        <span className="scale-swatch-label">{item.label}</span>
+                        <span className="scale-swatch-hex">{item.hex}</span>
+                        <span className="material-symbols-outlined" aria-hidden="true">
+                          {copiedColor === item.hex ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-panel-state">
+                    <span className="material-symbols-outlined">palette</span>
+                    <p>Select a color to generate a scale (up to 10 steps).</p>
+                  </div>
+                )}
+              </section>
 
               <div>
                 {renderCompareModeSelector("compare-mode-selector-desktop")}
