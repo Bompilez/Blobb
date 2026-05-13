@@ -109,7 +109,7 @@ function mixWithWhiteChannel(channel, t) {
   return Math.round(channel + (255 - channel) * t);
 }
 
-function generateTints(hex, count, maxT = 0.8) {
+function generateTints(hex, count) {
   if (!isValidHex(hex)) {
     return [];
   }
@@ -117,11 +117,22 @@ function generateTints(hex, count, maxT = 0.8) {
   const safeCount = Math.max(2, Math.min(10, Number(count) || 5));
   const { r, g, b } = hexToRGB(hex);
 
-  const items = [{ label: "Base", t: 0, hex }];
-  const steps = safeCount - 1;
+  // The palettes you shared match fixed 20% increments towards white:
+  // base + 20% + 40% + 60% (+ 80%).
+  // For >5 steps we add 10% increments, extending to 90% at 10 steps.
+  const tStops = safeCount <= 5
+    ? [0, 0.2, 0.4, 0.6, 0.8]
+    : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 
-  for (let i = 1; i <= steps; i++) {
-    const t = (i / steps) * maxT;
+  const items = [];
+
+  for (let i = 0; i < safeCount; i++) {
+    const t = tStops[i];
+    if (t === 0) {
+      items.push({ label: "Base", t, hex });
+      continue;
+    }
+
     const tinted = rgbToHex({
       r: mixWithWhiteChannel(r, t),
       g: mixWithWhiteChannel(g, t),
