@@ -69,7 +69,7 @@ body.modal-open {
 .navigation-container {
   background-color: var(--purple);
   color: var(--surface-color);
-  padding: var(--space-xl);
+  padding: 0;
 }
 
 .navigation-content {
@@ -79,6 +79,7 @@ body.modal-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: var(--space-xl);
 }
 
 .logo-container {
@@ -105,12 +106,15 @@ body.modal-open {
   max-width: var(--section-width);
   margin: 0 auto;
   flex: 1 0 auto;
+  padding: 0 var(--space-xl);
 }
 
 .content {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  padding-top: 0;
+  padding-bottom: clamp(50px, 10vw, 70px);
 }
 
 .contrast-checker-section {
@@ -1746,12 +1750,12 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xl);
-  padding: var(--space-xl) 0;
+  padding: var(--space-xl);
 }
 
 .footer-brand {
   display: grid;
-  gap: var(--space-xs);
+  gap: var(--space-md);
 }
 
 .footer-logo-svg {
@@ -1779,7 +1783,6 @@ body.modal-open {
   min-height: 38px;
   align-items: center;
   border: var(--border-default);
-  border-radius: var(--border-radius-pill);
   padding: 0 var(--space-md);
   color: inherit;
   font-weight: var(--font-weight-bold);
@@ -1798,7 +1801,8 @@ body.modal-open {
 }
 
 .footer-links .footer-github-button:hover {
-  background-color: rgba(255, 255, 255, 0.14);
+  background-color: var(--surface-color);
+  color: var(--purple);
 }
 
 @media (max-width: 1180px) {
@@ -1864,13 +1868,17 @@ body.modal-open {
   }
 
   .navigation-container {
-    padding: var(--space-md);
+    padding: 0;
   }
 
   .navigation-content,
   .palette-compare-intro {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .navigation-content {
+    padding: var(--space-md);
   }
 
   .navigation-anchor-items,
