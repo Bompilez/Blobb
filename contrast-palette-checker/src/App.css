@@ -2114,7 +2114,7 @@ body.modal-open {
   }
 
   .preview-metric {
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-2xl);
     min-height: auto;
   }
 
