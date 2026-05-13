@@ -109,6 +109,22 @@ function mixWithWhiteChannel(channel, t) {
   return Math.round(channel + (255 - channel) * t);
 }
 
+function mixWithBlackChannel(channel, t) {
+  return Math.round(channel * (1 - t));
+}
+
+function getStepStops(stepCount) {
+  if (stepCount <= 0) {
+    return [];
+  }
+
+  // Match the palette expectations:
+  // 1..4 steps: 20% increments (0.2..0.8)
+  // 5..9 steps: 10% increments (0.1..0.9)
+  const stops = stepCount <= 4 ? [0.2, 0.4, 0.6, 0.8] : [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  return stops.slice(0, stepCount);
+}
+
 function generateTints(hex, count) {
   if (!isValidHex(hex)) {
     return [];
@@ -117,29 +133,36 @@ function generateTints(hex, count) {
   const safeCount = Math.max(2, Math.min(10, Number(count) || 5));
   const { r, g, b } = hexToRGB(hex);
 
-  // The palettes you shared match fixed 20% increments towards white:
-  // base + 20% + 40% + 60% (+ 80%).
-  // For >5 steps we add 10% increments, extending to 90% at 10 steps.
-  const tStops = safeCount <= 5
-    ? [0, 0.2, 0.4, 0.6, 0.8]
-    : [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  // Generate a scale around the base color:
+  // darker steps (towards black) on the left, base in the middle, lighter steps (towards white) on the right.
+  const leftSteps = Math.floor((safeCount - 1) / 2);
+  const rightSteps = (safeCount - 1) - leftSteps;
+  const darkStops = getStepStops(leftSteps);
+  const lightStops = getStepStops(rightSteps);
 
   const items = [];
 
-  for (let i = 0; i < safeCount; i++) {
-    const t = tStops[i];
-    if (t === 0) {
-      items.push({ label: "Base", t, hex });
-      continue;
-    }
+  // Darkest first.
+  for (let i = darkStops.length - 1; i >= 0; i--) {
+    const t = darkStops[i];
+    const shaded = rgbToHex({
+      r: mixWithBlackChannel(r, t),
+      g: mixWithBlackChannel(g, t),
+      b: mixWithBlackChannel(b, t),
+    });
+    items.push({ label: `-${Math.round(t * 100)}%`, t: -t, hex: shaded });
+  }
 
+  items.push({ label: "Base", t: 0, hex });
+
+  for (let i = 0; i < lightStops.length; i++) {
+    const t = lightStops[i];
     const tinted = rgbToHex({
       r: mixWithWhiteChannel(r, t),
       g: mixWithWhiteChannel(g, t),
       b: mixWithWhiteChannel(b, t),
     });
-
-    items.push({ label: `${Math.round(t * 100)}%`, t, hex: tinted });
+    items.push({ label: `+${Math.round(t * 100)}%`, t, hex: tinted });
   }
 
   return items;
@@ -783,7 +806,7 @@ function App() {
                     <p className="scale-generator-subtitle">
                       {canGenerateScale ? (
                         <>
-                          Generating tints from <span className="mono">{scaleBaseColor}</span>.
+                          Generating a scale around <span className="mono">{scaleBaseColor}</span>.
                         </>
                       ) : (
                         "Select a color (Background) to generate its tint scale."
