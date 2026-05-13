@@ -594,8 +594,8 @@ function App() {
                     <div className="added-colors-container">
                       {isPaletteEmpty && (
                         <div className="palette-empty-callout">
-                          <span className="material-symbols-outlined">error</span>
-                          <p>Add atlesat two colors to compare.</p>
+                          <span className="material-symbols-outlined">palette</span>
+                          <p>Add two colors to compare.</p>
                         </div>
                       )}
                       {colors.map((color, index) => {
@@ -728,7 +728,6 @@ function App() {
                 {compareMode === "manual" && !selectedContrast && (
                   <div className="select-color-result-container">
                     <div className="quiet-empty-state">
-                      <span className="material-symbols-outlined">ads_click</span>
                       <p>{canComparePalette ? "Select two colors from your palette." : "Add two colors to compare."}</p>
                     </div>
                   </div>
