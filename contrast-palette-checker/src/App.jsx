@@ -118,10 +118,8 @@ function getStepStops(stepCount) {
     return [];
   }
 
-  // Match the palette expectations:
-  // 1..4 steps: 20% increments (0.2..0.8)
-  // 5..9 steps: 10% increments (0.1..0.9)
-  const stops = stepCount <= 4 ? [0.2, 0.4, 0.6, 0.8] : [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  // Always use 20% increments towards white/black to match the target palette behavior.
+  const stops = [0.2, 0.4, 0.6, 0.8];
   return stops.slice(0, stepCount);
 }
 
@@ -130,7 +128,9 @@ function generateTints(hex, count) {
     return [];
   }
 
-  const safeCount = Math.max(2, Math.min(10, Number(count) || 5));
+  // With 20% increments we can generate at most:
+  // 4 darker + base + 4 lighter = 9 total.
+  const safeCount = Math.max(2, Math.min(9, Number(count) || 5));
   const { r, g, b } = hexToRGB(hex);
 
   // Generate a scale around the base color:
@@ -818,7 +818,7 @@ function App() {
                     <input
                       type="range"
                       min="2"
-                      max="10"
+                      max="9"
                       value={scaleSteps}
                       onChange={(e) => setScaleSteps(Number(e.target.value))}
                       disabled={!canGenerateScale}
@@ -849,7 +849,7 @@ function App() {
                 ) : (
                   <div className="empty-panel-state">
                     <span className="material-symbols-outlined">palette</span>
-                    <p>Select a color to generate a scale (up to 10 steps).</p>
+                    <p>Select a color to generate a scale (up to 9 steps).</p>
                   </div>
                 )}
               </section>
