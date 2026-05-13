@@ -2021,7 +2021,9 @@ body.modal-open {
     justify-items: center;
     align-items: start;
     gap: var(--space-sm);
-    padding: 0;
+    padding: var(--space-xs);
+    padding-bottom: calc(var(--space-xs) * 2);
+    border-radius: var(--border-radius);
     border-color: transparent;
     background-color: transparent;
   }
