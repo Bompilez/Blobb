@@ -44,6 +44,12 @@
   --font-weight-bold: 700;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   background-color: var(--bg-color);
   color: #1f2937;
