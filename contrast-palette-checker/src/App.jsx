@@ -193,6 +193,7 @@ function App() {
   const cleanedEditColorInput = normalizeHex(editColorInput);
   const canSaveEditColor = isValidHex(cleanedEditColorInput);
   const canComparePalette = colors.length >= 2;
+  const isPaletteEmpty = colors.length === 0;
 
   useEffect(() => {
     return () => {
@@ -470,6 +471,7 @@ function App() {
           type="button"
           className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
           onClick={() => changeCompareMode("manual")}
+          disabled={isPaletteEmpty}
         >
           Manual compare
         </button>
@@ -477,6 +479,7 @@ function App() {
           type="button"
           className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
           onClick={() => changeCompareMode("palette")}
+          disabled={isPaletteEmpty}
         >
           Palette compare
         </button>
@@ -534,7 +537,7 @@ function App() {
       <section className="section-width">
         <div className="content">
           <div>
-            <div className="contrast-checker-section">
+            <div className={`contrast-checker-section ${isPaletteEmpty ? "contrast-checker-section-palette-empty" : ""}`}>
               <header className="intro-section">
                 <div>
                   <div>
@@ -589,6 +592,12 @@ function App() {
                       </div>
                     </div>
                     <div className="added-colors-container">
+                      {isPaletteEmpty && (
+                        <div className="palette-empty-callout">
+                          <span className="material-symbols-outlined">add_circle</span>
+                          <p>Add your first color here.</p>
+                        </div>
+                      )}
                       {colors.map((color, index) => {
                         const isSelected = selectedColors.includes(color);
                         const isBackgroundColor = selectedColors[0] === color;
