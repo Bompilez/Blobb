@@ -232,7 +232,11 @@ body.modal-open {
   background-color: var(--surface-color);
   padding: var(--padding-card);
   border-radius: var(--border-radius);
-  border: var(--border-default);
+  border: var(--border-width) solid rgba(94, 90, 163, 0.48);
+  box-shadow: 0 0 0 3px rgba(94, 90, 163, 0.12);
+  transition:
+    box-shadow 180ms ease,
+    border-color 180ms ease;
 }
 
 .color-palette-container {
