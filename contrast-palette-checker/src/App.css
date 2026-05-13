@@ -515,6 +515,7 @@ body.modal-open {
   grid-template-columns: minmax(0, 2fr) auto auto;
   align-items: center;
   gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .compare-color-a,
@@ -2024,6 +2025,8 @@ body.modal-open {
     padding: var(--space-xs);
     padding-bottom: calc(var(--space-xs) * 2);
     border-radius: var(--border-radius);
+    overflow: hidden;
+    overflow: clip;
     border-color: transparent;
     background-color: transparent;
   }
