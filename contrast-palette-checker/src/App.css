@@ -156,7 +156,7 @@ body.modal-open {
   border: var(--border-default);
   border-color: transparent;
   border-radius: var(--border-radius-secondary);
-  background-color: var(--purple);
+  background-color: var(--surface-color);
   color: var(--surface-color);
   padding: 0 var(--space-lg);
   font-weight: var(--font-weight-bold);
@@ -167,11 +167,6 @@ body.modal-open {
     box-shadow 150ms ease;
 }
 
-.github-button:hover {
-  background-color: #4d4989;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.14);
-  transform: translateY(-1px);
-}
 
 .github-button:focus-visible {
   outline: var(--outline-selected);
@@ -1846,8 +1841,8 @@ body.modal-open {
 .footer-links .footer-github-button {
   min-height: 38px;
   border-color: rgba(255, 255, 255, 0.22);
-  background-color: transparent;
-  color: var(--surface-color);
+  background-color: var(--surface-color);
+  color: var(--purple);
 }
 
 .footer-links .footer-github-button:hover {

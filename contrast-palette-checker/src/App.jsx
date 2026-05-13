@@ -594,8 +594,8 @@ function App() {
                     <div className="added-colors-container">
                       {isPaletteEmpty && (
                         <div className="palette-empty-callout">
-                          <span className="material-symbols-outlined">add_circle</span>
-                          <p>Add your first color here.</p>
+                          <span className="material-symbols-outlined">error</span>
+                          <p>Add atlesat two colors to compare.</p>
                         </div>
                       )}
                       {colors.map((color, index) => {
