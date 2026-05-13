@@ -2113,6 +2113,11 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
+  .preview-metric {
+    padding: var(--space-sm) var(--space-md);
+    min-height: auto;
+  }
+
   .contrast-checker-text,
   .contrast-checker-text-single {
     grid-template-columns: minmax(0, 1.6fr) auto auto;
