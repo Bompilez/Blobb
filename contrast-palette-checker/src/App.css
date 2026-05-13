@@ -1888,8 +1888,13 @@ body.modal-open {
     min-width: 0;
   }
 
+  .palette-compare-intro {
+    border-radius: var(--border-radius);
+  }
+
   .palette-compare-section {
     overflow-x: visible;
+    
   }
 
   .palette-compare-container {
