@@ -362,11 +362,7 @@ body.modal-open {
   background-color: var(--surface-color);
   padding: var(--space-lg);
   border-radius: var(--border-radius);
-  border: var(--border-width) solid rgba(94, 90, 163, 0.48);
-  box-shadow: 0 0 0 3px rgba(94, 90, 163, 0.12);
-  transition:
-    box-shadow 180ms ease,
-    border-color 180ms ease;
+  border: var(--border-default);
 }
 
 .contrast-checker-section-palette-empty .compare-color-container,
