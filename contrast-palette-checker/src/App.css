@@ -570,6 +570,16 @@ body.modal-open {
   user-select: none;
 }
 
+.scale-generator-panel-palette-empty {
+  opacity: 0.34;
+  filter: grayscale(0.35);
+  pointer-events: none;
+  user-select: none;
+  transition:
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
 .compare-mode-option:disabled {
   cursor: not-allowed;
 }

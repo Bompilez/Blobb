@@ -1295,7 +1295,10 @@ function App() {
                 <div className="scale-page-top-empty" aria-hidden="true"></div>
               </div>
 
-              <section className="scale-generator-panel scale-page-scale-row" aria-label="Scale generator">
+              <section
+                className={`scale-generator-panel scale-page-scale-row ${isPaletteEmpty ? "scale-generator-panel-palette-empty" : ""}`}
+                aria-label="Scale generator"
+              >
                 <div className="scale-generator-header">
                   <div>
                     <p className="card-heading">Scale</p>
