@@ -315,6 +315,51 @@ body.modal-open {
   margin-bottom: var(--space-lg);
 }
 
+.scale-generator-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+}
+
+.scale-action-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: var(--space-xs);
+  border: var(--border-default);
+  border-radius: var(--border-radius-secondary);
+  background-color: var(--surface-color);
+  padding: 0 var(--space-md);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+
+.scale-action-button:hover {
+  background-color: var(--light-blue);
+}
+
+.scale-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.scale-action-primary {
+  border-color: transparent;
+  background-color: var(--purple);
+  color: var(--surface-color);
+}
+
+.scale-action-primary:hover {
+  background-color: #4d4989;
+}
+
+.scale-action-primary:disabled:hover {
+  background-color: var(--purple);
+}
+
 .scale-generator-subtitle {
   margin: var(--space-xs) 0 0;
   color: #374151;

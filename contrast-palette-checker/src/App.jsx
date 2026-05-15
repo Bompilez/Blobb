@@ -168,6 +168,12 @@ function generateTints(hex, count) {
   return items;
 }
 
+function slugifyVariableBase(input) {
+  const raw = (input || "").toString().trim().toLowerCase();
+  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
+  return slug || "scale";
+}
+
 function hexToHSL(color) {
   const { r, g, b } = hexToRGB(color);
   const red = r / 255;
@@ -252,6 +258,7 @@ function App() {
   const [editColorInput, setEditColorInput] = useState("");
   const [editColorNameInput, setEditColorNameInput] = useState("");
   const [copiedColor, setCopiedColor] = useState("");
+  const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
   const [showPassingOnly, setShowPassingOnly] = useState(false);
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
@@ -270,6 +277,8 @@ function App() {
   const scaleBaseColor = typeof activePaletteColor === "string" ? activePaletteColor : "";
   const canGenerateScale = isValidHex(scaleBaseColor);
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
+  const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
+  const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
 
   useEffect(() => {
     return () => {
@@ -544,6 +553,52 @@ function App() {
       setCopiedColor("");
       copiedColorTimeoutRef.current = null;
     }, 1200);
+  }
+
+  async function copyScaleCss() {
+    if (!canGenerateScale || scaleColors.length === 0) {
+      return;
+    }
+
+    const lines = [":root {"];
+    for (let i = 0; i < scaleColors.length; i++) {
+      const token = scaleStepTokens[i] ?? i;
+      lines.push(`  --${scaleVarBase}-${token}: ${scaleColors[i].hex};`);
+    }
+    lines.push("}");
+
+    try {
+      await navigator.clipboard.writeText(`${lines.join("\n")}\n`);
+      setCopiedColor("scale-css");
+    } catch {
+      setCopiedColor("");
+      return;
+    }
+
+    if (copiedColorTimeoutRef.current) {
+      clearTimeout(copiedColorTimeoutRef.current);
+    }
+
+    copiedColorTimeoutRef.current = setTimeout(() => {
+      setCopiedColor("");
+      copiedColorTimeoutRef.current = null;
+    }, 1200);
+  }
+
+  function replacePaletteWithScale() {
+    if (!canGenerateScale || scaleColors.length === 0) {
+      return;
+    }
+
+    const nextColors = scaleColors.map((item) => item.hex);
+    const baseLabel = (activePaletteColorName || "Scale").trim() || "Scale";
+    const nextNames = nextColors.map((_, i) => `${baseLabel} ${scaleStepTokens[i] ?? i}`);
+
+    setColors(nextColors);
+    setColorNames(nextNames);
+    setSelectedColors([nextColors[Math.min(4, nextColors.length - 1)]]);
+    setActiveSelectedIndex(0);
+    setShowReplaceConfirm(false);
   }
 
   function renderCompareModeSelector(className = "") {
@@ -1225,6 +1280,25 @@ function App() {
                       )}
                     </p>
                   </div>
+                  <div className="scale-generator-actions" aria-label="Scale actions">
+                    <button type="button" className="scale-action-button" onClick={copyScaleCss} disabled={!canGenerateScale}>
+                      <span className="material-symbols-outlined" aria-hidden="true">
+                        {copiedColor === "scale-css" ? "check" : "content_copy"}
+                      </span>
+                      Copy CSS variables
+                    </button>
+                    <button
+                      type="button"
+                      className="scale-action-button scale-action-primary"
+                      onClick={() => setShowReplaceConfirm(true)}
+                      disabled={!canGenerateScale}
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">
+                        palette
+                      </span>
+                      Use in palette
+                    </button>
+                  </div>
                 </div>
 
                 {canGenerateScale ? (
@@ -1257,6 +1331,33 @@ function App() {
           )}
         </div>
       </section>
+      {showReplaceConfirm && (
+        <div className="edit-color-overlay" role="dialog" aria-modal="true" aria-labelledby="replace-palette-title" onClick={() => setShowReplaceConfirm(false)}>
+          <div className="edit-color-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-color-modal-header">
+              <div>
+                <p className="card-heading" id="replace-palette-title">
+                  Replace your palette?
+                </p>
+                <p>This will replace all colors in your current palette with the generated scale.</p>
+              </div>
+              <button className="edit-color-modal-close" onClick={() => setShowReplaceConfirm(false)} aria-label="Close replace palette dialog">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="edit-color-actions">
+              <button className="edit-color-action-button" onClick={replacePaletteWithScale}>
+                <span className="material-symbols-outlined">check</span>
+                Replace palette
+              </button>
+              <button className="edit-color-action-button" onClick={() => setShowReplaceConfirm(false)}>
+                <span className="material-symbols-outlined">close</span>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {editingColorIndex !== null && (
         <div className="edit-color-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-color-title" onClick={cancelEditColor}>
           <div className="edit-color-modal" onClick={(event) => event.stopPropagation()}>
