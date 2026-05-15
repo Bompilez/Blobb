@@ -260,6 +260,7 @@ function App() {
   const [copiedColor, setCopiedColor] = useState("");
   const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
   const [showPassingOnly, setShowPassingOnly] = useState(false);
+  const [paletteCompareView, setPaletteCompareView] = useState("grid");
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
 
@@ -1067,8 +1068,32 @@ function App() {
                             </span>
                             <span>Focus passing pairs</span>
                           </label>
+                          <div className="palette-view-toggle" role="tablist" aria-label="Palette compare view">
+                            <button
+                              type="button"
+                              role="tab"
+                              aria-selected={paletteCompareView === "grid"}
+                              className={`palette-view-option ${paletteCompareView === "grid" ? "palette-view-option-active" : ""}`}
+                              onClick={() => setPaletteCompareView("grid")}
+                            >
+                              Grid
+                            </button>
+                            <button
+                              type="button"
+                              role="tab"
+                              aria-selected={paletteCompareView === "list"}
+                              className={`palette-view-option ${paletteCompareView === "list" ? "palette-view-option-active" : ""}`}
+                              onClick={() => setPaletteCompareView("list")}
+                            >
+                              List
+                            </button>
+                          </div>
                         </div>
-                        <div className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""}`}>
+                        <div
+                          className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""} ${
+                            paletteCompareView === "list" ? "palette-compare-view-hidden" : ""
+                          }`}
+                        >
                           <div className="palette-header-row" style={{ gridTemplateColumns: `repeat(${colors.length}, 1fr)` }}>
                             {colors.map((color, index) => {
                               const isActiveColor = color === activePaletteColor;
@@ -1131,7 +1156,11 @@ function App() {
                             )}
                           </div>
                         </div>
-                        <div className={`palette-compare-mobile-list ${showPassingOnly ? "palette-focus-mode" : ""}`}>
+                        <div
+                          className={`palette-compare-mobile-list ${showPassingOnly ? "palette-focus-mode" : ""} ${
+                            paletteCompareView === "grid" ? "palette-compare-view-hidden" : "palette-compare-view-active"
+                          }`}
+                        >
                           {colors.map((color, index) => {
                             const contrast = getContrast(activePaletteColor, color);
                             const passes = contrast >= 4.5;

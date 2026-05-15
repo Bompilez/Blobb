@@ -1648,6 +1648,43 @@ body.modal-open {
   border-bottom: var(--border-default);
 }
 
+.palette-view-toggle {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: var(--border-radius-pill);
+  background-color: rgba(94, 90, 163, 0.12);
+  padding: 4px;
+}
+
+.palette-view-option {
+  min-height: 34px;
+  border: none;
+  border-radius: var(--border-radius-pill);
+  background-color: transparent;
+  color: inherit;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.palette-view-option:hover {
+  background-color: rgba(94, 90, 163, 0.12);
+  opacity: 1;
+}
+
+.palette-view-option-active {
+  background-color: var(--surface-color);
+  box-shadow: 0 0 0 1px rgba(94, 90, 163, 0.18);
+  opacity: 1;
+}
+
+.palette-compare-view-hidden {
+  display: none !important;
+}
+
 .palette-pass-switch {
   display: inline-flex;
   width: fit-content;
@@ -1897,6 +1934,13 @@ body.modal-open {
 
 .palette-compare-mobile-list {
   display: none;
+}
+
+.palette-compare-mobile-list.palette-compare-view-active {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+  padding: var(--padding-card);
 }
 
 .palette-mobile-pair {
