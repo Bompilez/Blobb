@@ -285,13 +285,17 @@ function hslToHex(hue, saturation, lightness) {
 
 // ===== APP =====
 function App() {
+  const initialPalette = loadPaletteFromStorage();
   const [route, setRoute] = useState("contrast");
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
-  const [colors, setColors] = useState(DEFAULT_COLORS);
-  const [colorNames, setColorNames] = useState(DEFAULT_COLOR_NAMES);
-  const [selectedColors, setSelectedColors] = useState(DEFAULT_COLORS.slice(0, 2));
+  const [colors, setColors] = useState(() => initialPalette?.colors ?? DEFAULT_COLORS);
+  const [colorNames, setColorNames] = useState(() => initialPalette?.colorNames ?? DEFAULT_COLOR_NAMES);
+  const [selectedColors, setSelectedColors] = useState(() => {
+    const loaded = initialPalette?.colors ?? DEFAULT_COLORS;
+    return loaded.length >= 2 ? [loaded[0], loaded[1]] : loaded.length === 1 ? [loaded[0]] : [];
+  });
   const [activeSelectedIndex, setActiveSelectedIndex] = useState(0);
   const [editingColorIndex, setEditingColorIndex] = useState(null);
   const [editColorInput, setEditColorInput] = useState("");
@@ -319,26 +323,6 @@ function App() {
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
-
-  useEffect(() => {
-    const stored = loadPaletteFromStorage();
-    if (!stored) {
-      return;
-    }
-
-    setColors(stored.colors);
-    setColorNames(stored.colorNames);
-
-    if (stored.colors.length >= 2) {
-      setSelectedColors([stored.colors[0], stored.colors[1]]);
-      setActiveSelectedIndex(0);
-    } else if (stored.colors.length === 1) {
-      setSelectedColors([stored.colors[0]]);
-      setActiveSelectedIndex(0);
-    } else {
-      setSelectedColors([]);
-    }
-  }, []);
 
   useEffect(() => {
     savePaletteToStorage(colors, colorNames);
