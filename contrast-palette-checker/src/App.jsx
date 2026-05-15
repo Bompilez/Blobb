@@ -5,6 +5,7 @@ import "./App.css";
 
 const DEFAULT_COLORS = [];
 const DEFAULT_COLOR_NAMES = [];
+const PALETTE_STORAGE_KEY = "blobb.palette.v1";
 
 // ===== UTIL FUNCTIONS =====
 function isValidHex(input) {
@@ -174,6 +175,44 @@ function slugifyVariableBase(input) {
   return slug || "scale";
 }
 
+function loadPaletteFromStorage() {
+  try {
+    const raw = localStorage.getItem(PALETTE_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    const colors = Array.isArray(parsed.colors) ? parsed.colors : null;
+    const colorNames = Array.isArray(parsed.colorNames) ? parsed.colorNames : null;
+    if (!colors || !colorNames || colors.length !== colorNames.length) {
+      return null;
+    }
+
+    const normalizedColors = colors
+      .map((c) => (typeof c === "string" ? c.trim().toLowerCase() : ""))
+      .filter((c) => isValidHex(c))
+      .slice(0, 10);
+    const normalizedNames = colorNames.slice(0, normalizedColors.length).map((n) => (typeof n === "string" ? n : ""));
+
+    return { colors: normalizedColors, colorNames: normalizedNames };
+  } catch {
+    return null;
+  }
+}
+
+function savePaletteToStorage(colors, colorNames) {
+  try {
+    localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify({ colors, colorNames }));
+  } catch {
+    // ignore (storage disabled/quota/private mode)
+  }
+}
+
 function hexToHSL(color) {
   const { r, g, b } = hexToRGB(color);
   const red = r / 255;
@@ -280,6 +319,30 @@ function App() {
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
+
+  useEffect(() => {
+    const stored = loadPaletteFromStorage();
+    if (!stored) {
+      return;
+    }
+
+    setColors(stored.colors);
+    setColorNames(stored.colorNames);
+
+    if (stored.colors.length >= 2) {
+      setSelectedColors([stored.colors[0], stored.colors[1]]);
+      setActiveSelectedIndex(0);
+    } else if (stored.colors.length === 1) {
+      setSelectedColors([stored.colors[0]]);
+      setActiveSelectedIndex(0);
+    } else {
+      setSelectedColors([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    savePaletteToStorage(colors, colorNames);
+  }, [colors, colorNames]);
 
   useEffect(() => {
     return () => {
