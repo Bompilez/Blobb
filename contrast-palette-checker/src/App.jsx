@@ -1129,7 +1129,7 @@ function App() {
                 </div>
               </div>
             </header>
-            <div className="top-grid">
+            <div className="scale-page-layout">
               <div className="color-palette-section">
                 <div className="color-palette-container">
                   <div className="palette-toolbar">

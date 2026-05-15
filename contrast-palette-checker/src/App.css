@@ -286,6 +286,12 @@ body.modal-open {
   padding: var(--padding-card);
 }
 
+.scale-page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
 .scale-generator-header {
   display: flex;
   align-items: flex-start;
