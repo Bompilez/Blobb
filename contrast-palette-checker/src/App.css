@@ -104,6 +104,40 @@ body.modal-open {
   gap: var(--space-lg);
 }
 
+.route-tabs {
+  display: inline-flex;
+  border-radius: var(--border-radius-pill);
+  background-color: rgba(255, 255, 255, 0.14);
+  padding: 4px;
+}
+
+.route-tab {
+  min-height: 36px;
+  border: none;
+  border-radius: var(--border-radius-pill);
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0 12px;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.route-tab:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.route-tab:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.route-tab-active {
+  background-color: var(--surface-color);
+  color: var(--purple);
+}
+
 .card-heading {
   margin-top: 0;
 }

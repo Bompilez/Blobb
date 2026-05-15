@@ -240,6 +240,7 @@ function hslToHex(hue, saturation, lightness) {
 
 // ===== APP =====
 function App() {
+  const [route, setRoute] = useState("contrast");
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -251,7 +252,6 @@ function App() {
   const [editColorInput, setEditColorInput] = useState("");
   const [editColorNameInput, setEditColorNameInput] = useState("");
   const [copiedColor, setCopiedColor] = useState("");
-  const [scaleSteps, setScaleSteps] = useState(5);
   const [showPassingOnly, setShowPassingOnly] = useState(false);
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
@@ -269,7 +269,7 @@ function App() {
   const isPaletteEmpty = colors.length === 0;
   const scaleBaseColor = typeof activePaletteColor === "string" ? activePaletteColor : "";
   const canGenerateScale = isValidHex(scaleBaseColor);
-  const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, scaleSteps) : [];
+  const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
 
   useEffect(() => {
     return () => {
@@ -346,6 +346,12 @@ function App() {
   }
 
   function selectedColor(color) {
+    if (route === "scale") {
+      setSelectedColors([color]);
+      setActiveSelectedIndex(0);
+      return;
+    }
+
     if (!canComparePalette) {
       setSelectedColors([color]);
       return;
@@ -607,11 +613,33 @@ function App() {
 	              </g>
 	            </svg>
 	          </div>
-	          <div className="navigation-anchor-items"></div>
+	          <div className="navigation-anchor-items" aria-label="Navigation">
+              <div className="route-tabs" role="tablist" aria-label="Pages">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={route === "contrast"}
+                  className={`route-tab ${route === "contrast" ? "route-tab-active" : ""}`}
+                  onClick={() => setRoute("contrast")}
+                >
+                  Contrast checker
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={route === "scale"}
+                  className={`route-tab ${route === "scale" ? "route-tab-active" : ""}`}
+                  onClick={() => setRoute("scale")}
+                >
+                  Scale generator
+                </button>
+              </div>
+            </div>
 	        </div>
 	      </nav>
       <section className="section-width">
         <div className="content">
+          {route === "contrast" ? (
           <div>
             <div className={`contrast-checker-section ${isPaletteEmpty ? "contrast-checker-section-palette-empty" : ""}`}>
               <header className="intro-section">
@@ -798,61 +826,6 @@ function App() {
                   </div>
                 )}
               </div>
-
-              <section className="scale-generator-panel" aria-label="Scale generator">
-                <div className="scale-generator-header">
-                  <div>
-                    <p className="card-heading">Scale generator</p>
-                    <p className="scale-generator-subtitle">
-                      {canGenerateScale ? (
-                        <>
-                          Generating a scale around <span className="mono">{scaleBaseColor}</span>.
-                        </>
-                      ) : (
-                        "Select a color (Background) to generate its tint scale."
-                      )}
-                    </p>
-                  </div>
-                  <label className="scale-steps-control">
-                    Steps
-                    <input
-                      type="range"
-                      min="2"
-                      max="9"
-                      value={scaleSteps}
-                      onChange={(e) => setScaleSteps(Number(e.target.value))}
-                      disabled={!canGenerateScale}
-                      aria-label="Scale steps"
-                    />
-                    <span className="scale-steps-value">{scaleSteps}</span>
-                  </label>
-                </div>
-
-                {canGenerateScale ? (
-                  <div className="scale-swatch-grid">
-                    {scaleColors.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className="scale-swatch-tile"
-                        style={{ backgroundColor: item.hex, color: getReadableTextColor(item.hex) }}
-                        onClick={(e) => copyColor(item.hex, e)}
-                      >
-                        <span className="scale-swatch-label">{item.label}</span>
-                        <span className="scale-swatch-hex">{item.hex}</span>
-                        <span className="material-symbols-outlined" aria-hidden="true">
-                          {copiedColor === item.hex ? "check" : "content_copy"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-panel-state">
-                    <span className="material-symbols-outlined">palette</span>
-                    <p>Select a color to generate a scale (up to 9 steps).</p>
-                  </div>
-                )}
-              </section>
 
               <div>
                 {renderCompareModeSelector("compare-mode-selector-desktop")}
@@ -1146,6 +1119,139 @@ function App() {
               </div>
             </div>
           </div>
+          ) : (
+          <div className="scale-generator-page">
+            <header className="intro-section">
+              <div>
+                <div>
+                  <h1>Generate a clean scale from one color</h1>
+                  <p>Select a color from your palette to generate darker and lighter steps around it.</p>
+                </div>
+              </div>
+            </header>
+            <div className="top-grid">
+              <div className="color-palette-section">
+                <div className="color-palette-container">
+                  <div className="palette-toolbar">
+                    <div>
+                      <p className="card-heading">Your palette</p>
+                      <p className="palette-count">{colors.length}/10 colors</p>
+                    </div>
+                    <div className="add-color-control">
+                      <input
+                        className="color-name-input"
+                        placeholder="Color name"
+                        value={colorNameInput}
+                        onChange={(e) => setColorNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            addColor();
+                          }
+                        }}
+                      />
+                      <div className="hex-input-shell">
+                        <span>#</span>
+                        <input
+                          placeholder="7c3aed"
+                          value={colorInput}
+                          onChange={(e) => setColorInput(e.target.value.replace(/^#+/, ""))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              addColor();
+                            }
+                          }}
+                        />
+                      </div>
+                      <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                  <div className="added-colors-container">
+                    {isPaletteEmpty && (
+                      <div className="palette-empty-callout">
+                        <span className="material-symbols-outlined">add_circle</span>
+                        <p>Add your first color here.</p>
+                      </div>
+                    )}
+                    {colors.map((color, index) => {
+                      const isSelected = selectedColors.includes(color);
+                      return (
+                        <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
+                          <p className="palette-color-name">{getColorName(index)}</p>
+                          <div className="palette-preview-shell">
+                            <div
+                              className={`color-preview ${isSelected ? "selected" : ""}`}
+                              style={{ backgroundColor: color }}
+                              onClick={() => handlePaletteColorClick(color)}
+                            ></div>
+                            {isSelected && (
+                              <div className="palette-swatch-tags" aria-hidden="true">
+                                <span>Base</span>
+                              </div>
+                            )}
+                            <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                              <span className="material-symbols-outlined">edit</span>
+                            </button>
+                            <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
+                              <span className="material-symbols-outlined">close</span>
+                            </button>
+                          </div>
+                          <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
+                            <span>{color}</span>
+                            <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <section className="scale-generator-panel" aria-label="Scale generator">
+                <div className="scale-generator-header">
+                  <div>
+                    <p className="card-heading">Scale</p>
+                    <p className="scale-generator-subtitle">
+                      {canGenerateScale ? (
+                        <>
+                          Scale around <span className="mono">{scaleBaseColor}</span>. Click any step to copy.
+                        </>
+                      ) : (
+                        "Select a color in your palette to generate its scale."
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {canGenerateScale ? (
+                  <div className="scale-swatch-grid">
+                    {scaleColors.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className="scale-swatch-tile"
+                        style={{ backgroundColor: item.hex, color: getReadableTextColor(item.hex) }}
+                        onClick={(e) => copyColor(item.hex, e)}
+                      >
+                        <span className="scale-swatch-label">{item.label}</span>
+                        <span className="scale-swatch-hex">{item.hex}</span>
+                        <span className="material-symbols-outlined" aria-hidden="true">
+                          {copiedColor === item.hex ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-panel-state">
+                    <span className="material-symbols-outlined">palette</span>
+                    <p>Select a color to generate a scale.</p>
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+          )}
         </div>
       </section>
       {editingColorIndex !== null && (
