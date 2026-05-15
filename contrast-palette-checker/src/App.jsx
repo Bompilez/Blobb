@@ -1130,85 +1130,88 @@ function App() {
               </div>
             </header>
             <div className="scale-page-layout">
-              <div className="color-palette-section">
-                <div className="color-palette-container">
-                  <div className="palette-toolbar">
-                    <div>
-                      <p className="card-heading">Your palette</p>
-                      <p className="palette-count">{colors.length}/10 colors</p>
-                    </div>
-                    <div className="add-color-control">
-                      <input
-                        className="color-name-input"
-                        placeholder="Color name"
-                        value={colorNameInput}
-                        onChange={(e) => setColorNameInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            addColor();
-                          }
-                        }}
-                      />
-                      <div className="hex-input-shell">
-                        <span>#</span>
+              <div className="scale-page-top-row">
+                <div className="color-palette-section">
+                  <div className="color-palette-container">
+                    <div className="palette-toolbar">
+                      <div>
+                        <p className="card-heading">Your palette</p>
+                        <p className="palette-count">{colors.length}/10 colors</p>
+                      </div>
+                      <div className="add-color-control">
                         <input
-                          placeholder="7c3aed"
-                          value={colorInput}
-                          onChange={(e) => setColorInput(e.target.value.replace(/^#+/, ""))}
+                          className="color-name-input"
+                          placeholder="Color name"
+                          value={colorNameInput}
+                          onChange={(e) => setColorNameInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               addColor();
                             }
                           }}
                         />
+                        <div className="hex-input-shell">
+                          <span>#</span>
+                          <input
+                            placeholder="7c3aed"
+                            value={colorInput}
+                            onChange={(e) => setColorInput(e.target.value.replace(/^#+/, ""))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                addColor();
+                              }
+                            }}
+                          />
+                        </div>
+                        <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
+                          Add
+                        </button>
                       </div>
-                      <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                        Add
-                      </button>
                     </div>
-                  </div>
-                  <div className="added-colors-container">
-                    {isPaletteEmpty && (
-                      <div className="palette-empty-callout">
-                        <span className="material-symbols-outlined">add_circle</span>
-                        <p>Add your first color here.</p>
-                      </div>
-                    )}
-                    {colors.map((color, index) => {
-                      const isSelected = selectedColors.includes(color);
-                      return (
-                        <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
-                          <p className="palette-color-name">{getColorName(index)}</p>
-                          <div className="palette-preview-shell">
-                            <div
-                              className={`color-preview ${isSelected ? "selected" : ""}`}
-                              style={{ backgroundColor: color }}
-                              onClick={() => handlePaletteColorClick(color)}
-                            ></div>
-                            {isSelected && (
-                              <div className="palette-swatch-tags" aria-hidden="true">
-                                <span>Base</span>
-                              </div>
-                            )}
-                            <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
-                              <span className="material-symbols-outlined">edit</span>
-                            </button>
-                            <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
-                              <span className="material-symbols-outlined">close</span>
+                    <div className="added-colors-container">
+                      {isPaletteEmpty && (
+                        <div className="palette-empty-callout">
+                          <span className="material-symbols-outlined">add_circle</span>
+                          <p>Add your first color here.</p>
+                        </div>
+                      )}
+                      {colors.map((color, index) => {
+                        const isSelected = selectedColors.includes(color);
+                        return (
+                          <div className={`palette-swatch-card ${isSelected ? "palette-swatch-card-selected" : ""}`} key={index}>
+                            <p className="palette-color-name">{getColorName(index)}</p>
+                            <div className="palette-preview-shell">
+                              <div
+                                className={`color-preview ${isSelected ? "selected" : ""}`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => handlePaletteColorClick(color)}
+                              ></div>
+                              {isSelected && (
+                                <div className="palette-swatch-tags" aria-hidden="true">
+                                  <span>Base</span>
+                                </div>
+                              )}
+                              <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                                <span className="material-symbols-outlined">edit</span>
+                              </button>
+                              <button className="delete-color-button" onClick={() => deleteColor(index)} aria-label={`Delete ${getColorName(index)} ${color}`}>
+                                <span className="material-symbols-outlined">close</span>
+                              </button>
+                            </div>
+                            <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
+                              <span>{color}</span>
+                              <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
                             </button>
                           </div>
-                          <button className="copy-hex-button" onClick={(event) => copyColor(color, event)} aria-label={`Copy ${getColorName(index)} ${color}`}>
-                            <span>{color}</span>
-                            <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
+                <div className="scale-page-top-empty" aria-hidden="true"></div>
               </div>
 
-              <section className="scale-generator-panel" aria-label="Scale generator">
+              <section className="scale-generator-panel scale-page-scale-row" aria-label="Scale generator">
                 <div className="scale-generator-header">
                   <div>
                     <p className="card-heading">Scale</p>

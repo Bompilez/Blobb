@@ -292,6 +292,21 @@ body.modal-open {
   gap: var(--space-lg);
 }
 
+.scale-page-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.scale-page-top-empty {
+  min-width: 0;
+}
+
+.scale-page-scale-row {
+  width: 100%;
+}
+
 .scale-generator-header {
   display: flex;
   align-items: flex-start;
@@ -2070,6 +2085,14 @@ body.modal-open {
   .footer-content {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .scale-page-top-row {
+    grid-template-columns: 1fr;
+  }
+
+  .scale-page-top-empty {
+    display: none;
   }
 
   .scale-generator-header {
