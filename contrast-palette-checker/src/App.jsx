@@ -1061,13 +1061,6 @@ function App() {
                           </div>
                         </div>
                         <div className="palette-compare-tools">
-                          <label className="palette-pass-switch">
-                            <input type="checkbox" checked={showPassingOnly} onChange={(e) => setShowPassingOnly(e.target.checked)} />
-                            <span className="switch-track" aria-hidden="true">
-                              <span className="switch-thumb"></span>
-                            </span>
-                            <span>Focus passing pairs</span>
-                          </label>
                           <div className="palette-view-toggle" role="tablist" aria-label="Palette compare view">
                             <button
                               type="button"
@@ -1088,6 +1081,13 @@ function App() {
                               List
                             </button>
                           </div>
+                          <label className="palette-pass-switch">
+                            <input type="checkbox" checked={showPassingOnly} onChange={(e) => setShowPassingOnly(e.target.checked)} />
+                            <span className="switch-track" aria-hidden="true">
+                              <span className="switch-thumb"></span>
+                            </span>
+                            <span>Focus passing pairs</span>
+                          </label>
                         </div>
                         <div
                           className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""} ${
