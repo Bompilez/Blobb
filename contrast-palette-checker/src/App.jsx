@@ -5,7 +5,6 @@ import InfoPopover from "./components/InfoPopover";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
 import { getRouteFromPath, PAGE_META, setMetaContent } from "./lib/routeMeta";
 import FaqPage from "./pages/FaqPage";
-import VisionToolsPage from "./pages/VisionToolsPage";
 import "./App.css";
 
 const DEFAULT_COLORS = [];
@@ -550,6 +549,7 @@ function App() {
         info={info}
         isOpen={isOpen}
         panelId={panelId}
+        label="More about this tool"
         onToggle={() => setOpenInfoPanel(isOpen ? null : panel)}
         onClose={() => setOpenInfoPanel(null)}
       />
@@ -646,15 +646,6 @@ function App() {
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={route === "vision"}
-                  className={`route-tab ${route === "vision" ? "route-tab-active" : ""}`}
-                  onClick={() => changeRoute("vision")}
-                >
-                  Vision tools
-                </button>
-                <button
-                  type="button"
-                  role="tab"
                   aria-selected={route === "faq"}
                   className={`route-tab ${route === "faq" ? "route-tab-active" : ""}`}
                   onClick={() => changeRoute("faq")}
@@ -673,10 +664,7 @@ function App() {
               <header className="intro-section">
                 <div>
                   <div>
-                    <div className="intro-title-row">
-                      <h1>Check whether your colors or palette is readable</h1>
-                      {renderInfoButton("contrast")}
-                    </div>
+                    <h1>Check whether your colors or palette is readable</h1>
                     <p>
                       Compare foreground and background colors against{" "}
                       <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
@@ -685,6 +673,7 @@ function App() {
                       contrast guidelines. Verify that text, icons, buttons, and other UI elements maintain sufficient contrast for readability and
                       accessibility.
                     </p>
+                    {renderInfoButton("contrast")}
                   </div>
                 </div>
               </header>
@@ -1183,11 +1172,12 @@ function App() {
             <header className="intro-section">
               <div>
                 <div>
-                  <div className="intro-title-row">
-                    <h1>Generate a clean scale from one color</h1>
-                    {renderInfoButton("scale")}
-                  </div>
-                  <p>Select a color from your palette to generate darker and lighter steps around it.</p>
+                  <h1>Generate a clean scale from one color</h1>
+                  <p>
+                    Select a color from your palette to generate darker and lighter UI steps around it. Create related shades for surfaces, borders,
+                    hover states, selected states, and readable color combinations that stay visually consistent.
+                  </p>
+                  {renderInfoButton("scale")}
                 </div>
               </div>
             </header>
@@ -1338,8 +1328,6 @@ function App() {
               </section>
             </div>
           </div>
-          ) : route === "vision" ? (
-          <VisionToolsPage colors={colors} getColorName={getColorName} copyColor={copyColor} />
           ) : (
           <FaqPage />
           )}

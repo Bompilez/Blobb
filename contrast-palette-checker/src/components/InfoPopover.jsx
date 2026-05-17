@@ -1,9 +1,9 @@
-function InfoPopover({ info, isOpen, panelId, onToggle, onClose }) {
+function InfoPopover({ info, isOpen, panelId, label = "", onToggle, onClose }) {
   return (
     <div className="info-popover-container">
       <button
         type="button"
-        className="info-icon-button"
+        className={`info-icon-button ${isOpen ? "info-icon-button-active" : ""}`}
         aria-label={`Show ${info.title.toLowerCase()}`}
         aria-expanded={isOpen}
         aria-controls={panelId}
@@ -12,6 +12,7 @@ function InfoPopover({ info, isOpen, panelId, onToggle, onClose }) {
         <span className="material-symbols-outlined" aria-hidden="true">
           info
         </span>
+        {label && <span>{label}</span>}
       </button>
       {isOpen && (
         <aside className="info-popover" id={panelId}>

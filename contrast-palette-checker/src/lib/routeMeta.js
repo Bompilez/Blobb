@@ -12,12 +12,6 @@ export const PAGE_META = {
     canonical: "https://blobb.net/scale-generator",
     path: "/scale-generator",
   },
-  vision: {
-    title: "Blobb.net Vision Tools | Dark Mode and Color Blindness Preview",
-    description: "Preview palette colors in dark mode and simulate common color vision differences for more resilient UI palettes.",
-    canonical: "https://blobb.net/vision-tools",
-    path: "/vision-tools",
-  },
   faq: {
     title: "Blobb.net FAQ | Color Contrast and Palette Help",
     description:
@@ -34,10 +28,6 @@ export function getRouteFromPath() {
 
   if (window.location.pathname === PAGE_META.scale.path) {
     return "scale";
-  }
-
-  if (window.location.pathname === PAGE_META.vision.path) {
-    return "vision";
   }
 
   if (window.location.pathname === PAGE_META.faq.path) {
