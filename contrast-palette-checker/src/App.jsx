@@ -1,110 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
+import InfoPopover from "./components/InfoPopover";
+import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
+import { getRouteFromPath, PAGE_META, setMetaContent } from "./lib/routeMeta";
+import FaqPage from "./pages/FaqPage";
+import VisionToolsPage from "./pages/VisionToolsPage";
 import "./App.css";
 
 const DEFAULT_COLORS = [];
 const DEFAULT_COLOR_NAMES = [];
 const PALETTE_STORAGE_KEY = "blobb.palette.v1";
-
-// ===== UTIL FUNCTIONS =====
-function isValidHex(input) {
-  const hex = input.startsWith("#") ? input.slice(1) : input;
-
-  if (hex.length !== 3 && hex.length !== 6) {
-    return false;
-  }
-
-  const split = hex.toLowerCase().split("");
-  const allowedCharacters = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"];
-
-  for (let i = 0; i < split.length; i++) {
-    if (!allowedCharacters.includes(split[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function normalizeHex(input) {
-  const cleanedInput = input.trim().toLowerCase();
-  return cleanedInput.startsWith("#") ? cleanedInput : `#${cleanedInput}`;
-}
-
-function hexToRGB(color) {
-  const hex = color.slice(1);
-
-  let r;
-  let g;
-  let b;
-
-  if (hex.length === 3) {
-    r = hex[0] + hex[0];
-    g = hex[1] + hex[1];
-    b = hex[2] + hex[2];
-  } else {
-    r = hex.substring(0, 2);
-    g = hex.substring(2, 4);
-    b = hex.substring(4, 6);
-  }
-
-  const decimalValueR = parseInt(r, 16);
-  const decimalValueG = parseInt(g, 16);
-  const decimalValueB = parseInt(b, 16);
-
-  return { r: decimalValueR, g: decimalValueG, b: decimalValueB };
-}
-
-function getLuminance(rgb) {
-  const { r, g, b } = rgb;
-
-  function transform(channel) {
-    const value = channel / 255;
-
-    if (value <= 0.03928) {
-      return value / 12.92;
-    }
-
-    return ((value + 0.055) / 1.055) ** 2.4;
-  }
-
-  const red = transform(r);
-  const green = transform(g);
-  const blue = transform(b);
-
-  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-}
-
-function getContrast(colorA, colorB) {
-  const rgbA = hexToRGB(colorA);
-  const rgbB = hexToRGB(colorB);
-
-  const lumA = getLuminance(rgbA);
-  const lumB = getLuminance(rgbB);
-
-  const lighter = Math.max(lumA, lumB);
-  const darker = Math.min(lumA, lumB);
-
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function getReadableTextColor(hex) {
-  if (!isValidHex(hex)) {
-    return "#111827";
-  }
-
-  const lum = getLuminance(hexToRGB(hex));
-  return lum > 0.45 ? "#111827" : "#ffffff";
-}
-
-function rgbToHex(rgb) {
-  function toHex(channel) {
-    return channel.toString(16).padStart(2, "0");
-  }
-
-  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
-}
+const INFO_CONTENT = {
+  contrast: {
+    title: "About contrast checks",
+    body: "Calculates the WCAG contrast ratio between foreground and background colors. Checks common WCAG 2.2 contrast thresholds for normal text, large text, and non-text UI elements like icons, controls, and focus indicators.",
+    points: ["Text on buttons", "Icons on backgrounds", "Borders and focus states"],
+  },
+  scale: {
+    title: "About color scales",
+    body: "Generates lighter and darker steps from one base color. Use the scale for surfaces, borders, hover states, and color pairs you can test in the contrast checker.",
+    points: ["Light and dark surfaces", "Hover and active states", "Palette steps for contrast checks"],
+  },
+};
 
 function mixWithWhiteChannel(channel, t) {
   return Math.round(channel + (255 - channel) * t);
@@ -213,80 +131,10 @@ function savePaletteToStorage(colors, colorNames) {
   }
 }
 
-function hexToHSL(color) {
-  const { r, g, b } = hexToRGB(color);
-  const red = r / 255;
-  const green = g / 255;
-  const blue = b / 255;
-
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const lightness = (max + min) / 2;
-  const delta = max - min;
-
-  if (delta === 0) {
-    return { h: 0, s: 0, l: Math.round(lightness * 100) };
-  }
-
-  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
-  let hue;
-
-  if (max === red) {
-    hue = 60 * (((green - blue) / delta) % 6);
-  } else if (max === green) {
-    hue = 60 * ((blue - red) / delta + 2);
-  } else {
-    hue = 60 * ((red - green) / delta + 4);
-  }
-
-  if (hue < 0) {
-    hue += 360;
-  }
-
-  return { h: Math.round(hue), s: Math.round(saturation * 100), l: Math.round(lightness * 100) };
-}
-
-function hslToHex(hue, saturation, lightness) {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = l - chroma / 2;
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (hue < 60) {
-    red = chroma;
-    green = x;
-  } else if (hue < 120) {
-    red = x;
-    green = chroma;
-  } else if (hue < 180) {
-    green = chroma;
-    blue = x;
-  } else if (hue < 240) {
-    green = x;
-    blue = chroma;
-  } else if (hue < 300) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  return rgbToHex({
-    r: Math.round((red + m) * 255),
-    g: Math.round((green + m) * 255),
-    b: Math.round((blue + m) * 255),
-  });
-}
-
 // ===== APP =====
 function App() {
   const initialPalette = loadPaletteFromStorage();
-  const [route, setRoute] = useState("contrast");
+  const [route, setRoute] = useState(getRouteFromPath);
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -304,6 +152,7 @@ function App() {
   const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
   const [showPassingOnly, setShowPassingOnly] = useState(false);
   const [paletteCompareView, setPaletteCompareView] = useState("grid");
+  const [openInfoPanel, setOpenInfoPanel] = useState(null);
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
 
@@ -327,6 +176,36 @@ function App() {
   useEffect(() => {
     savePaletteToStorage(colors, colorNames);
   }, [colors, colorNames]);
+
+  useEffect(() => {
+    function syncRoute() {
+      setRoute(getRouteFromPath());
+      setOpenInfoPanel(null);
+    }
+
+    window.addEventListener("popstate", syncRoute);
+
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    const meta = PAGE_META[route] ?? PAGE_META.contrast;
+    const canonical = document.querySelector('link[rel="canonical"]');
+
+    document.title = meta.title;
+    setMetaContent('meta[name="description"]', meta.description);
+    setMetaContent('meta[property="og:title"]', meta.title);
+    setMetaContent('meta[property="og:description"]', meta.description);
+    setMetaContent('meta[property="og:url"]', meta.canonical);
+    setMetaContent('meta[name="twitter:title"]', meta.title);
+    setMetaContent('meta[name="twitter:description"]', meta.description);
+
+    if (canonical) {
+      canonical.setAttribute("href", meta.canonical);
+    }
+  }, [route]);
 
   useEffect(() => {
     return () => {
@@ -649,6 +528,34 @@ function App() {
     setShowReplaceConfirm(false);
   }
 
+  function changeRoute(nextRoute) {
+    const nextMeta = PAGE_META[nextRoute] ?? PAGE_META.contrast;
+
+    if (window.location.pathname !== nextMeta.path) {
+      window.history.pushState({}, "", nextMeta.path);
+    }
+
+    setRoute(nextRoute);
+    setOpenInfoPanel(null);
+    window.scrollTo({ top: 0 });
+  }
+
+  function renderInfoButton(panel) {
+    const info = INFO_CONTENT[panel];
+    const isOpen = openInfoPanel === panel;
+    const panelId = `${panel}-info-panel`;
+
+    return (
+      <InfoPopover
+        info={info}
+        isOpen={isOpen}
+        panelId={panelId}
+        onToggle={() => setOpenInfoPanel(isOpen ? null : panel)}
+        onClose={() => setOpenInfoPanel(null)}
+      />
+    );
+  }
+
   function renderCompareModeSelector(className = "") {
     return (
       <div className={`compare-mode-selector ${className}`} aria-label="Compare mode">
@@ -723,7 +630,7 @@ function App() {
                   role="tab"
                   aria-selected={route === "contrast"}
                   className={`route-tab ${route === "contrast" ? "route-tab-active" : ""}`}
-                  onClick={() => setRoute("contrast")}
+                  onClick={() => changeRoute("contrast")}
                 >
                   Contrast checker
                 </button>
@@ -732,9 +639,27 @@ function App() {
                   role="tab"
                   aria-selected={route === "scale"}
                   className={`route-tab ${route === "scale" ? "route-tab-active" : ""}`}
-                  onClick={() => setRoute("scale")}
+                  onClick={() => changeRoute("scale")}
                 >
                   Scale generator
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={route === "vision"}
+                  className={`route-tab ${route === "vision" ? "route-tab-active" : ""}`}
+                  onClick={() => changeRoute("vision")}
+                >
+                  Vision tools
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={route === "faq"}
+                  className={`route-tab ${route === "faq" ? "route-tab-active" : ""}`}
+                  onClick={() => changeRoute("faq")}
+                >
+                  FAQ
                 </button>
               </div>
             </div>
@@ -748,7 +673,10 @@ function App() {
               <header className="intro-section">
                 <div>
                   <div>
-                    <h1>Check whether your colors or palette is readable</h1>
+                    <div className="intro-title-row">
+                      <h1>Check whether your colors or palette is readable</h1>
+                      {renderInfoButton("contrast")}
+                    </div>
                     <p>
                       Compare foreground and background colors against{" "}
                       <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
@@ -1250,12 +1178,15 @@ function App() {
               </div>
             </div>
           </div>
-          ) : (
+          ) : route === "scale" ? (
           <div className="scale-generator-page">
             <header className="intro-section">
               <div>
                 <div>
-                  <h1>Generate a clean scale from one color</h1>
+                  <div className="intro-title-row">
+                    <h1>Generate a clean scale from one color</h1>
+                    {renderInfoButton("scale")}
+                  </div>
                   <p>Select a color from your palette to generate darker and lighter steps around it.</p>
                 </div>
               </div>
@@ -1407,6 +1338,10 @@ function App() {
               </section>
             </div>
           </div>
+          ) : route === "vision" ? (
+          <VisionToolsPage colors={colors} getColorName={getColorName} copyColor={copyColor} />
+          ) : (
+          <FaqPage />
           )}
         </div>
       </section>
