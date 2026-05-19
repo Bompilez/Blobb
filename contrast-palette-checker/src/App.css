@@ -1243,11 +1243,30 @@ input {
 
 .tool-guide-details ul {
   display: grid;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   margin: 0;
+  list-style: none;
   padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + 1.1rem);
   color: #1f2937;
   line-height: 1.5;
+}
+
+.tool-guide-details li {
+  position: relative;
+  padding-left: 0.95rem;
+}
+
+.tool-guide-details li::before {
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background-color: currentColor;
+  content: "";
+  transform: translateY(-50%);
+  opacity: 0.75;
 }
 
 .tool-visual {
