@@ -380,6 +380,9 @@ function App() {
   const [paletteCompareView, setPaletteCompareView] = useState("grid");
   const [paletteSnippetType, setPaletteSnippetType] = useState("css");
   const [paletteCssFormat, setPaletteCssFormat] = useState("hex");
+  const [showPaletteExportModal, setShowPaletteExportModal] = useState(false);
+  const [showCompareMoreMenu, setShowCompareMoreMenu] = useState(false);
+  const compareMoreMenuRef = useRef(null);
   const [activeScalePanel, setActiveScalePanel] = useState("");
   const [scaleSnippetType, setScaleSnippetType] = useState("css");
   const [scaleCssFormat, setScaleCssFormat] = useState("hex");
@@ -454,6 +457,22 @@ function App() {
       // ignore (storage disabled/quota/private mode)
     }
   }, [theme]);
+
+  useEffect(() => {
+    function closeIfOutside(event) {
+      if (!showCompareMoreMenu) {
+        return;
+      }
+
+      const node = compareMoreMenuRef.current;
+      if (node && !node.contains(event.target)) {
+        setShowCompareMoreMenu(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", closeIfOutside);
+    return () => window.removeEventListener("pointerdown", closeIfOutside);
+  }, [showCompareMoreMenu]);
 
   useEffect(() => {
     function syncRoute() {
@@ -977,11 +996,11 @@ function App() {
 
     return (
       <div className="info-popover-container">
-        <button type="button" className="info-icon-button" onClick={() => changeRoute("faq", hash)}>
+        <button type="button" className="info-icon-button" onClick={() => changeRoute("helpFaq", hash)} aria-label="Read more in Help & FAQ">
           <span className="material-symbols-outlined" aria-hidden="true">
-            help
+            info
           </span>
-          <span>How this tool works</span>
+          <span>Read more in Help & FAQ</span>
         </button>
       </div>
     );
@@ -1016,8 +1035,8 @@ function App() {
             </button>
           </span>
           <span>{body}</span>
-          <button type="button" className="panel-help-link" onClick={() => changeRoute("faq", hash)}>
-            Read more in FAQ
+          <button type="button" className="panel-help-link" onClick={() => changeRoute("helpFaq", hash)}>
+            Read more in Help & FAQ
           </button>
         </span>
       </span>
@@ -1027,22 +1046,69 @@ function App() {
   function renderCompareModeSelector(className = "") {
     return (
       <div className={`compare-mode-selector ${className}`} aria-label="Compare mode">
-        <button
-          type="button"
-          className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
-          onClick={() => changeCompareMode("manual")}
-          disabled={isPaletteEmpty}
-        >
-          Manual compare
-        </button>
-        <button
-          type="button"
-          className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
-          onClick={() => changeCompareMode("palette")}
-          disabled={isPaletteEmpty}
-        >
-          Palette compare
-        </button>
+        <div className="compare-mode-selector-buttons">
+          <button
+            type="button"
+            className={`compare-mode-option ${compareMode === "manual" ? "compare-mode-option-active" : ""}`}
+            onClick={() => changeCompareMode("manual")}
+            disabled={isPaletteEmpty}
+          >
+            Manual compare
+          </button>
+          <button
+            type="button"
+            className={`compare-mode-option ${compareMode === "palette" ? "compare-mode-option-active" : ""}`}
+            onClick={() => changeCompareMode("palette")}
+            disabled={isPaletteEmpty}
+          >
+            Palette compare
+          </button>
+          <button
+            type="button"
+            className="compare-mode-option compare-mode-export-option compare-mode-export-desktop"
+            onClick={() => setShowPaletteExportModal(true)}
+            disabled={!colors.length}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              download
+            </span>
+            Export palette
+          </button>
+        </div>
+        <div className="compare-more-menu-shell" ref={compareMoreMenuRef}>
+          <button
+            type="button"
+            className="compare-mode-option compare-mode-more-trigger"
+            aria-label="More compare actions"
+            aria-haspopup="menu"
+            aria-expanded={showCompareMoreMenu}
+            onClick={() => setShowCompareMoreMenu((current) => !current)}
+            disabled={isPaletteEmpty}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              more_vert
+            </span>
+          </button>
+          {showCompareMoreMenu && (
+            <div className="compare-more-menu" role="menu" aria-label="Compare actions">
+              <button
+                type="button"
+                role="menuitem"
+                className="compare-more-menu-item"
+                onClick={() => {
+                  setShowCompareMoreMenu(false);
+                  setShowPaletteExportModal(true);
+                }}
+                disabled={!colors.length}
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  download
+                </span>
+                Export palette
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1096,11 +1162,11 @@ function App() {
               <button
                 type="button"
                 role="tab"
-                aria-selected={route === "faq"}
-                className={`route-tab ${route === "faq" ? "route-tab-active" : ""}`}
-                onClick={() => changeRoute("faq")}
+                aria-selected={route === "helpFaq"}
+                className={`route-tab ${route === "helpFaq" ? "route-tab-active" : ""}`}
+                onClick={() => changeRoute("helpFaq")}
               >
-                FAQ
+                Help & FAQ
               </button>
             </div>
             <button
@@ -1585,59 +1651,6 @@ function App() {
                               <span>Focus passing pairs</span>
                             </label>
                           </div>
-                          <div className="scale-css-preview" aria-label="Export palette">
-                            <div className="scale-css-preview-header">
-                              <div>
-                                <p className="card-heading">Export palette</p>
-                                <p>Copy tokens for developers or export a swatch file for design tools.</p>
-                              </div>
-                              <div className="scale-css-controls">
-                                <div className="scale-css-format-selector" aria-label="Export type">
-                                  {["css", "json"].map((type) => (
-                                    <button
-                                      key={`palette-type-${type}`}
-                                      type="button"
-                                      className={`scale-css-format-option ${paletteSnippetType === type ? "scale-css-format-option-active" : ""}`}
-                                      onClick={() => setPaletteSnippetType(type)}
-                                      aria-pressed={paletteSnippetType === type}
-                                    >
-                                      {type.toUpperCase()}
-                                    </button>
-                                  ))}
-                                </div>
-                                <div className="scale-css-format-selector" aria-label="Color value format">
-                                  {["hex", "rgb", "hsl"].map((format) => (
-                                    <button
-                                      key={`palette-format-${format}`}
-                                      type="button"
-                                      className={`scale-css-format-option ${paletteCssFormat === format ? "scale-css-format-option-active" : ""}`}
-                                      onClick={() => setPaletteCssFormat(format)}
-                                      aria-pressed={paletteCssFormat === format}
-                                    >
-                                      {format.toUpperCase()}
-                                    </button>
-                                  ))}
-                                </div>
-                                <button type="button" className="scale-action-button" onClick={downloadPaletteAse} disabled={!colors.length}>
-                                  <span className="material-symbols-outlined" aria-hidden="true">
-                                    {copiedColor === "palette-ase" ? "check" : "download"}
-                                  </span>
-                                  Download ASE
-                                </button>
-                              </div>
-                            </div>
-                            <div className="scale-code-window">
-                              <button type="button" className="scale-code-copy-button" onClick={copyPaletteSnippet} disabled={!colors.length}>
-                                <span className="material-symbols-outlined" aria-hidden="true">
-                                  {copiedColor === "palette-snippet" ? "check" : "content_copy"}
-                                </span>
-                                Copy snippet
-                              </button>
-                              <pre className="scale-css-code">
-                                <code>{paletteDeveloperSnippet}</code>
-                              </pre>
-                            </div>
-                          </div>
                           <div
                             className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""} ${
                               paletteCompareView === "list" ? "palette-compare-view-hidden" : ""
@@ -1686,7 +1699,7 @@ function App() {
                                   const passes = contrast >= 4.5;
                                   const sameColor = backgroundColor === textColor;
                                   const isActiveResult = backgroundColor === activePaletteColor || textColor === activePaletteColor;
-                                  const isFilteredOut = showPassingOnly && !passes;
+                                  const isFilteredOut = showPassingOnly && !passes && !sameColor;
 
                                   return (
                                     <div
@@ -1714,7 +1727,7 @@ function App() {
                               const contrast = getContrast(activePaletteColor, color);
                               const passes = contrast >= 4.5;
                               const sameColor = activePaletteColor === color;
-                              const isFilteredOut = showPassingOnly && !passes;
+                              const isFilteredOut = showPassingOnly && !passes && !sameColor;
 
                               if (isFilteredOut) {
                                 return null;
@@ -1815,8 +1828,8 @@ function App() {
                       <div className="added-colors-container">
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
-                            <span className="material-symbols-outlined">add_circle</span>
-                            <p>Add your first color here.</p>
+                            <span className="material-symbols-outlined">palette</span>
+                            <p>Add one colors to genereate scale.</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
@@ -1933,7 +1946,7 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             code
                           </span>
-                          Export colors
+                          Export scale
                         </button>
                       </div>
                       {activeScalePanel === "compare" && (
@@ -2024,7 +2037,7 @@ function App() {
                                   const passes = contrast >= 4.5;
                                   const sameColor = backgroundItem.hex === textItem.hex;
                                   const isActiveResult = backgroundItem.hex === scaleCompareActiveColor || textItem.hex === scaleCompareActiveColor;
-                                  const isFilteredOut = showScalePassingOnly && !passes;
+                                  const isFilteredOut = showScalePassingOnly && !passes && !sameColor;
 
                                   return (
                                     <div
@@ -2048,29 +2061,47 @@ function App() {
                               scaleCompareView === "grid" ? "palette-compare-view-hidden" : "palette-compare-view-active"
                             }`}
                           >
+                            <p className="scale-compare-list-title">Select active scale color</p>
+                            <div className="scale-compare-list-selector" aria-label="Select active scale color">
+                              {scaleColors.map((item, index) => {
+                                const isSelected = item.hex === scaleCompareActiveColor;
+                                return (
+                                  <button
+                                    key={`scale-list-select-${item.hex}-${index}`}
+                                    type="button"
+                                    className={`scale-compare-list-swatch ${isSelected ? "scale-compare-list-swatch-selected" : ""}`}
+                                    onClick={() => setActiveScaleCompareColor(item.hex)}
+                                    aria-pressed={isSelected}
+                                  >
+                                    <span className="scale-compare-list-swatch-chip" style={{ backgroundColor: item.hex }} aria-hidden="true"></span>
+                                    <span className="scale-compare-list-swatch-label">{scaleStepTokens[index] ?? index}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                             {scaleColors.map((item, index) => {
                               const contrast = getContrast(scaleCompareActiveColor, item.hex);
                               const passes = contrast >= 4.5;
                               const sameColor = scaleCompareActiveColor === item.hex;
-                              const isFilteredOut = showScalePassingOnly && !passes;
+                              const isFilteredOut = showScalePassingOnly && !passes && !sameColor;
 
                               if (isFilteredOut) {
                                 return null;
                               }
 
-                              return (
-                                <div
-                                  className={`palette-mobile-pair palette-mobile-pair-static ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
-                                  key={`scale-mobile-${scaleCompareActiveColor}-${item.hex}-${index}`}
-                                >
-                                  <div className="palette-mobile-pair-colors">
-                                    <span style={{ backgroundColor: scaleCompareActiveColor }}></span>
-                                    <span style={{ backgroundColor: item.hex }}></span>
-                                  </div>
-                                  <div className="palette-mobile-pair-text">
-                                    <strong>{sameColor ? scaleCompareActiveToken : `${scaleCompareActiveToken} + ${scaleStepTokens[index] ?? index}`}</strong>
-                                    <small>
-                                      {scaleCompareActiveColor} / {item.hex}
+                                  return (
+                                    <div
+                                      className={`palette-mobile-pair palette-mobile-pair-static ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
+                                      key={`scale-mobile-${scaleCompareActiveColor}-${item.hex}-${index}`}
+                                    >
+                                      <div className="palette-mobile-pair-colors">
+                                        <span style={{ backgroundColor: scaleCompareActiveColor }}></span>
+                                        <span style={{ backgroundColor: item.hex }}></span>
+                                      </div>
+                                      <div className="palette-mobile-pair-text">
+                                        <strong>{sameColor ? scaleCompareActiveToken : `${scaleCompareActiveToken} + ${scaleStepTokens[index] ?? index}`}</strong>
+                                        <small>
+                                          {scaleCompareActiveColor} / {item.hex}
                                     </small>
                                   </div>
                                   <div className="palette-mobile-pair-result">
@@ -2421,6 +2452,80 @@ function App() {
                 <span className="material-symbols-outlined">close</span>
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPaletteExportModal && (
+        <div
+          className="edit-color-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="palette-export-title"
+          onClick={() => setShowPaletteExportModal(false)}
+        >
+          <div className="edit-color-modal palette-export-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-color-modal-header">
+              <div>
+                <p className="card-heading" id="palette-export-title">
+                  Export palette
+                </p>
+                <p>Copy tokens for developers or export a swatch file for design tools.</p>
+              </div>
+              <button
+                className="edit-color-modal-close"
+                onClick={() => setShowPaletteExportModal(false)}
+                aria-label="Close palette export dialog"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="palette-export-modal-body">
+              <div className="scale-css-controls palette-export-controls-row">
+                <div className="scale-css-format-selector" aria-label="Export type">
+                  {["css", "json"].map((type) => (
+                    <button
+                      key={`palette-type-modal-${type}`}
+                      type="button"
+                      className={`scale-css-format-option ${paletteSnippetType === type ? "scale-css-format-option-active" : ""}`}
+                      onClick={() => setPaletteSnippetType(type)}
+                      aria-pressed={paletteSnippetType === type}
+                    >
+                      {type.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="scale-css-format-selector" aria-label="Color value format">
+                  {["hex", "rgb", "hsl"].map((format) => (
+                    <button
+                      key={`palette-format-modal-${format}`}
+                      type="button"
+                      className={`scale-css-format-option ${paletteCssFormat === format ? "scale-css-format-option-active" : ""}`}
+                      onClick={() => setPaletteCssFormat(format)}
+                      aria-pressed={paletteCssFormat === format}
+                    >
+                      {format.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="scale-action-button" onClick={downloadPaletteAse} disabled={!colors.length}>
+                  <span className="material-symbols-outlined" aria-hidden="true">
+                    {copiedColor === "palette-ase" ? "check" : "download"}
+                  </span>
+                  Download ASE
+                </button>
+              </div>
+              <div className="scale-code-window">
+                <button type="button" className="scale-code-copy-button" onClick={copyPaletteSnippet} disabled={!colors.length}>
+                  <span className="material-symbols-outlined" aria-hidden="true">
+                    {copiedColor === "palette-snippet" ? "check" : "content_copy"}
+                  </span>
+                  Copy snippet
+                </button>
+                <pre className="scale-css-code">
+                  <code>{paletteDeveloperSnippet}</code>
+                </pre>
+              </div>
             </div>
           </div>
         </div>

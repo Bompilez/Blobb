@@ -1,23 +1,23 @@
 export const PAGE_META = {
   contrast: {
-    title: "Blobb.net Contrast Palette Checker | WCAG Color Contrast Tool",
+    title: "Contrast Palette Checker | WCAG Color Contrast Tool",
     description:
-      "Check color contrast for UI palettes against WCAG contrast thresholds. Compare foreground and background colors, scan palettes, and preview readable interface combinations.",
+      "Check color contrast across your palette. Compare text and background pairs, scan palette combinations, and preview readable UI results against WCAG thresholds.",
     canonical: "https://blobb.net/",
     path: "/",
   },
   scale: {
-    title: "Blobb.net Color Scale Generator | UI Palette Tool",
-    description: "Generate lighter and darker color steps from one base color, then use the palette for UI states and contrast checks.",
+    title: "Color Scale Generator | UI Palette Tool",
+    description: "Generate light-to-dark scale steps from one base color, then compare contrast pairs and export the scale as tokens.",
     canonical: "https://blobb.net/scale-generator",
     path: "/scale-generator",
   },
-  faq: {
-    title: "Blobb.net FAQ | Color Contrast and Palette Help",
+  helpFaq: {
+    title: "Help & FAQ | Blobb Color Tools",
     description:
-      "Answers about checking colors from your own palette, WCAG contrast ratios, readable UI combinations, and generating lighter and darker color scales.",
-    canonical: "https://blobb.net/faq",
-    path: "/faq",
+      "Guides for palettes, contrast checking, scales, and exports, plus quick answers to common WCAG contrast questions.",
+    canonical: "https://blobb.net/Help&FAQ",
+    path: "/Help&FAQ",
   },
 };
 
@@ -30,8 +30,8 @@ export function getRouteFromPath() {
     return "scale";
   }
 
-  if (window.location.pathname === PAGE_META.faq.path) {
-    return "faq";
+  if (window.location.pathname === PAGE_META.helpFaq.path || window.location.pathname === "/faq") {
+    return "helpFaq";
   }
 
   return "contrast";
