@@ -1486,13 +1486,27 @@ input {
 }
 
 @media (min-width: 980px) {
+  .faq-page {
+    /* Matches the left column width of `.intro-section` (1fr 1fr). */
+    --faq-intro-col: calc((var(--section-width) - var(--space-lg)) / 2);
+  }
+
+  /* Inside padded cards, reduce the wrap width by the card padding. */
   .faq-page .tool-guide-index > div:first-child p:last-child,
   .faq-page .tool-guide-card p,
+  .faq-page .faq-summary-panel p:last-child {
+    max-width: min(100%, calc(var(--faq-intro-col) - (var(--padding-card) * 2)));
+  }
+
+  /* Details copy has smaller internal padding. */
   .faq-page .tool-guide-details p,
-  .faq-page .faq-summary-panel p:last-child,
+  .faq-page .tool-guide-details ul {
+    max-width: min(100%, calc(var(--faq-intro-col) - (var(--space-md) * 2)));
+  }
+
+  /* FAQ list answers live inside `.faq-item` which has side padding too. */
   .faq-page .faq-item p {
-    /* Match the left column width of `.intro-section` (1fr 1fr) so wrapping feels consistent. */
-    max-width: min(100%, calc((var(--section-width) - var(--space-lg)) / 2));
+    max-width: min(100%, calc(var(--faq-intro-col) - (var(--padding-card) * 2)));
   }
 }
 
