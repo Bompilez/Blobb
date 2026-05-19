@@ -1259,14 +1259,14 @@ input {
 .tool-guide-details li::before {
   position: absolute;
   left: 0;
-  top: 0.55em;
+  top: 0.72em;
   width: 8px;
   height: 8px;
   border-radius: 3px;
-  background-color: currentColor;
+  background-color: var(--purple);
   content: "";
   transform: translateY(-50%);
-  opacity: 0.75;
+  opacity: 1;
 }
 
 .tool-visual {
