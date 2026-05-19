@@ -1491,7 +1491,8 @@ input {
   .faq-page .tool-guide-details p,
   .faq-page .faq-summary-panel p:last-child,
   .faq-page .faq-item p {
-    max-width: min(700px, 100%);
+    /* Match the left column width of `.intro-section` (1fr 1fr) so wrapping feels consistent. */
+    max-width: min(100%, calc((var(--section-width) - var(--space-lg)) / 2));
   }
 }
 
