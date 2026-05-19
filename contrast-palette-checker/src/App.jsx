@@ -263,6 +263,44 @@ function buildScaleDeveloperSnippet(scaleColors, scaleStepTokens, scaleVarBase, 
   return `${lines.join("\n")}\n`;
 }
 
+function buildPaletteDeveloperSnippet(colors, tokens, paletteName, format, type) {
+  if (!colors.length) {
+    return "";
+  }
+
+  const rows = colors.map((hex, index) => ({
+    token: tokens[index] ?? `color-${index + 1}`,
+    value: formatCssColorValue(hex, format),
+  }));
+
+  if (type === "json") {
+    const entries = rows.reduce((acc, { token, value }) => {
+      acc[token] = { value };
+      return acc;
+    }, {});
+
+    return `${JSON.stringify({ [paletteName]: entries }, null, 2)}\n`;
+  }
+
+  const lines = [":root {"];
+  rows.forEach(({ token, value }) => {
+    lines.push(`  --${token}: ${value};`);
+  });
+  lines.push("}");
+
+  return `${lines.join("\n")}\n`;
+}
+
+function uniqueTokens(tokens) {
+  const seen = new Map();
+  return tokens.map((token, index) => {
+    const base = token || `color-${index + 1}`;
+    const count = (seen.get(base) || 0) + 1;
+    seen.set(base, count);
+    return count === 1 ? base : `${base}-${count}`;
+  });
+}
+
 function loadPaletteFromStorage() {
   try {
     const raw = localStorage.getItem(PALETTE_STORAGE_KEY);
@@ -340,6 +378,8 @@ function App() {
   const [copiedColor, setCopiedColor] = useState("");
   const [showPassingOnly, setShowPassingOnly] = useState(false);
   const [paletteCompareView, setPaletteCompareView] = useState("grid");
+  const [paletteSnippetType, setPaletteSnippetType] = useState("css");
+  const [paletteCssFormat, setPaletteCssFormat] = useState("hex");
   const [activeScalePanel, setActiveScalePanel] = useState("");
   const [scaleSnippetType, setScaleSnippetType] = useState("css");
   const [scaleCssFormat, setScaleCssFormat] = useState("hex");
@@ -369,6 +409,8 @@ function App() {
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
+  const paletteTokens = uniqueTokens(colors.map((_, index) => slugifyVariableBase(getColorName(index))));
+  const paletteDeveloperSnippet = buildPaletteDeveloperSnippet(colors, paletteTokens, "palette", paletteCssFormat, paletteSnippetType);
   const scaleCompareActiveColor = scaleColors.some((item) => item.hex === activeScaleCompareColor) ? activeScaleCompareColor : scaleBaseColor;
   const scaleCompareActiveIndex = scaleColors.findIndex((item) => item.hex === scaleCompareActiveColor);
   const scaleCompareActiveToken = scaleStepTokens[scaleCompareActiveIndex] ?? scaleCompareActiveIndex;
@@ -849,6 +891,57 @@ function App() {
     link.remove();
     URL.revokeObjectURL(url);
     setCopiedColor("scale-ase");
+
+    if (copiedColorTimeoutRef.current) {
+      clearTimeout(copiedColorTimeoutRef.current);
+    }
+
+    copiedColorTimeoutRef.current = setTimeout(() => {
+      setCopiedColor("");
+      copiedColorTimeoutRef.current = null;
+    }, 1200);
+  }
+
+  async function copyPaletteSnippet() {
+    if (!paletteDeveloperSnippet) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(paletteDeveloperSnippet);
+      setCopiedColor("palette-snippet");
+    } catch {
+      setCopiedColor("");
+      return;
+    }
+
+    if (copiedColorTimeoutRef.current) {
+      clearTimeout(copiedColorTimeoutRef.current);
+    }
+
+    copiedColorTimeoutRef.current = setTimeout(() => {
+      setCopiedColor("");
+      copiedColorTimeoutRef.current = null;
+    }, 1200);
+  }
+
+  function downloadPaletteAse() {
+    if (!colors.length) {
+      return;
+    }
+
+    const paletteItems = colors.map((hex) => ({ hex }));
+    const blob = buildAdobeSwatchExchangeFile(paletteItems, paletteTokens, "palette");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `blobb-palette.ase`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setCopiedColor("palette-ase");
 
     if (copiedColorTimeoutRef.current) {
       clearTimeout(copiedColorTimeoutRef.current);
@@ -1458,7 +1551,8 @@ function App() {
                                 <strong>
                                   {activePaletteColorName} ({activePaletteColor})
                                 </strong>{" "}
-                                against the rest of your palette. Each row shows whether that pair works for normal text.
+                                against the rest of your palette. Each row shows whether that pair works for normal text. Select a swatch in your palette
+                                to change the active color.
                               </p>
                             </div>
                           </div>
@@ -1490,6 +1584,59 @@ function App() {
                               </span>
                               <span>Focus passing pairs</span>
                             </label>
+                          </div>
+                          <div className="scale-css-preview" aria-label="Export palette">
+                            <div className="scale-css-preview-header">
+                              <div>
+                                <p className="card-heading">Export palette</p>
+                                <p>Copy tokens for developers or export a swatch file for design tools.</p>
+                              </div>
+                              <div className="scale-css-controls">
+                                <div className="scale-css-format-selector" aria-label="Export type">
+                                  {["css", "json"].map((type) => (
+                                    <button
+                                      key={`palette-type-${type}`}
+                                      type="button"
+                                      className={`scale-css-format-option ${paletteSnippetType === type ? "scale-css-format-option-active" : ""}`}
+                                      onClick={() => setPaletteSnippetType(type)}
+                                      aria-pressed={paletteSnippetType === type}
+                                    >
+                                      {type.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="scale-css-format-selector" aria-label="Color value format">
+                                  {["hex", "rgb", "hsl"].map((format) => (
+                                    <button
+                                      key={`palette-format-${format}`}
+                                      type="button"
+                                      className={`scale-css-format-option ${paletteCssFormat === format ? "scale-css-format-option-active" : ""}`}
+                                      onClick={() => setPaletteCssFormat(format)}
+                                      aria-pressed={paletteCssFormat === format}
+                                    >
+                                      {format.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button type="button" className="scale-action-button" onClick={downloadPaletteAse} disabled={!colors.length}>
+                                  <span className="material-symbols-outlined" aria-hidden="true">
+                                    {copiedColor === "palette-ase" ? "check" : "download"}
+                                  </span>
+                                  Download ASE
+                                </button>
+                              </div>
+                            </div>
+                            <div className="scale-code-window">
+                              <button type="button" className="scale-code-copy-button" onClick={copyPaletteSnippet} disabled={!colors.length}>
+                                <span className="material-symbols-outlined" aria-hidden="true">
+                                  {copiedColor === "palette-snippet" ? "check" : "content_copy"}
+                                </span>
+                                Copy snippet
+                              </button>
+                              <pre className="scale-css-code">
+                                <code>{paletteDeveloperSnippet}</code>
+                              </pre>
+                            </div>
                           </div>
                           <div
                             className={`palette-compare-container ${showPassingOnly ? "palette-focus-mode" : ""} ${
@@ -1574,10 +1721,9 @@ function App() {
                               }
 
                               return (
-                                <button
-                                  className={`palette-mobile-pair ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
+                                <div
+                                  className={`palette-mobile-pair palette-mobile-pair-static ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
                                   key={`${activePaletteColor}-${color}-${index}`}
-                                  onClick={() => selectedColor(color)}
                                 >
                                   <div className="palette-mobile-pair-colors">
                                     <span style={{ backgroundColor: activePaletteColor }}></span>
@@ -1594,7 +1740,7 @@ function App() {
                                     <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
-                                </button>
+                                </div>
                               );
                             })}
                           </div>
@@ -1913,10 +2059,9 @@ function App() {
                               }
 
                               return (
-                                <button
-                                  className={`palette-mobile-pair ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
+                                <div
+                                  className={`palette-mobile-pair palette-mobile-pair-static ${sameColor ? "palette-mobile-pair-same" : passes ? "palette-mobile-pair-pass" : "palette-mobile-pair-fail"}`}
                                   key={`scale-mobile-${scaleCompareActiveColor}-${item.hex}-${index}`}
-                                  onClick={() => setActiveScaleCompareColor(item.hex)}
                                 >
                                   <div className="palette-mobile-pair-colors">
                                     <span style={{ backgroundColor: scaleCompareActiveColor }}></span>
@@ -1933,7 +2078,7 @@ function App() {
                                     <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
-                                </button>
+                                </div>
                               );
                             })}
                           </div>

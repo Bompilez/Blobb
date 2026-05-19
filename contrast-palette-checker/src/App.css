@@ -3516,6 +3516,10 @@ input {
   cursor: pointer;
 }
 
+.palette-mobile-pair-static {
+  cursor: default;
+}
+
 .palette-mobile-pair-colors {
   display: flex;
 }
