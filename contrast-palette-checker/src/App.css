@@ -1485,6 +1485,16 @@ input {
   line-height: 1.6;
 }
 
+@media (min-width: 980px) {
+  .faq-page .tool-guide-index > div:first-child p:last-child,
+  .faq-page .tool-guide-card p,
+  .faq-page .tool-guide-details p,
+  .faq-page .faq-summary-panel p:last-child,
+  .faq-page .faq-item p {
+    max-width: min(50%, 72ch);
+  }
+}
+
 .scale-swatch-label {
   font-weight: var(--font-weight-bold);
 }
