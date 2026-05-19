@@ -1491,7 +1491,7 @@ input {
   .faq-page .tool-guide-details p,
   .faq-page .faq-summary-panel p:last-child,
   .faq-page .faq-item p {
-    max-width: min(50%, 72ch);
+    max-width: min(700px, 100%);
   }
 }
 
