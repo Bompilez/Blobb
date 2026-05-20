@@ -2,7 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
-import { getRouteFromPath, PAGE_META, setMetaContent } from "./lib/routeMeta";
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  SUPPORTED_LOCALES,
+  getPageMeta,
+  getPathForRoute,
+  getRouteInfoFromPath,
+  setMetaContent,
+  syncAlternateLinks,
+} from "./lib/routeMeta";
+import { APP_COPY } from "./i18n/appCopy.jsx";
 import FaqPage from "./pages/FaqPage";
 import "./styles/index.css";
 
@@ -31,7 +41,7 @@ function getStepStops(stepCount) {
   return stops.slice(0, stepCount);
 }
 
-function generateTints(hex, count) {
+function generateTints(hex, count, baseLabel = "Base") {
   if (!isValidHex(hex)) {
     return [];
   }
@@ -61,7 +71,7 @@ function generateTints(hex, count) {
     items.push({ label: `-${Math.round(t * 100)}%`, t: -t, hex: shaded });
   }
 
-  items.push({ label: "Base", t: 0, hex });
+  items.push({ label: baseLabel, t: 0, hex });
 
   for (let i = 0; i < lightStops.length; i++) {
     const t = lightStops[i];
@@ -85,55 +95,57 @@ function slugifyVariableBase(input) {
   return slug || "scale";
 }
 
-function getHueColorName(hue) {
-  if (hue < 12 || hue >= 348) return "Red";
-  if (hue < 24) return "Coral";
-  if (hue < 42) return "Orange";
-  if (hue < 58) return "Amber";
-  if (hue < 72) return "Yellow";
-  if (hue < 92) return "Lime";
-  if (hue < 150) return "Green";
-  if (hue < 178) return "Teal";
-  if (hue < 196) return "Cyan";
-  if (hue < 214) return "Sky";
-  if (hue < 248) return "Blue";
-  if (hue < 266) return "Indigo";
-  if (hue < 286) return "Violet";
-  if (hue < 316) return "Purple";
-  if (hue < 336) return "Pink";
-  return "Rose";
+function getHueColorName(hue, colorCopy) {
+  if (hue < 12 || hue >= 348) return colorCopy.hues.red;
+  if (hue < 24) return colorCopy.hues.coral;
+  if (hue < 42) return colorCopy.hues.orange;
+  if (hue < 58) return colorCopy.hues.amber;
+  if (hue < 72) return colorCopy.hues.yellow;
+  if (hue < 92) return colorCopy.hues.lime;
+  if (hue < 150) return colorCopy.hues.green;
+  if (hue < 178) return colorCopy.hues.teal;
+  if (hue < 196) return colorCopy.hues.cyan;
+  if (hue < 214) return colorCopy.hues.sky;
+  if (hue < 248) return colorCopy.hues.blue;
+  if (hue < 266) return colorCopy.hues.indigo;
+  if (hue < 286) return colorCopy.hues.violet;
+  if (hue < 316) return colorCopy.hues.purple;
+  if (hue < 336) return colorCopy.hues.pink;
+  return colorCopy.hues.rose;
 }
 
-function getGeneratedColorName(hex) {
+function getGeneratedColorName(hex, locale = DEFAULT_LOCALE) {
+  const colorCopy = APP_COPY[locale]?.colorNames ?? APP_COPY[DEFAULT_LOCALE].colorNames;
+
   if (!isValidHex(hex)) {
-    return "Color";
+    return colorCopy.fallback;
   }
 
   const { h, s, l } = hexToHSL(hex);
 
   if (s <= 8) {
-    if (l <= 10) return "Black";
-    if (l >= 96) return "White";
-    if (l <= 26) return "Dark Gray";
-    if (l >= 82) return "Light Gray";
-    return "Gray";
+    if (l <= 10) return colorCopy.black;
+    if (l >= 96) return colorCopy.white;
+    if (l <= 26) return colorCopy.darkGray;
+    if (l >= 82) return colorCopy.lightGray;
+    return colorCopy.gray;
   }
 
-  const baseName = getHueColorName(h);
+  const baseName = getHueColorName(h, colorCopy);
   let tone = "";
 
   if (l <= 18) {
-    tone = "Dark";
+    tone = colorCopy.tones.dark;
   } else if (l >= 88) {
-    tone = "Pale";
+    tone = colorCopy.tones.pale;
   } else if (s <= 32) {
-    tone = "Muted";
+    tone = colorCopy.tones.muted;
   } else if (l >= 72) {
-    tone = "Soft";
+    tone = colorCopy.tones.soft;
   } else if (s >= 78 && l >= 42 && l <= 62) {
-    tone = "Bright";
+    tone = colorCopy.tones.bright;
   } else if (l <= 34) {
-    tone = "Deep";
+    tone = colorCopy.tones.deep;
   }
 
   return tone ? `${tone} ${baseName}` : baseName;
@@ -360,7 +372,10 @@ function loadThemePreference() {
 // ===== APP =====
 function App() {
   const initialPalette = loadPaletteFromStorage();
-  const [route, setRoute] = useState(getRouteFromPath);
+  const initialRouteInfo = getRouteInfoFromPath();
+  const [route, setRoute] = useState(initialRouteInfo.route);
+  const [locale, setLocale] = useState(initialRouteInfo.locale);
+  const copy = APP_COPY[locale] ?? APP_COPY[DEFAULT_LOCALE];
   const [theme, setTheme] = useState(loadThemePreference);
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
@@ -409,7 +424,7 @@ function App() {
   const isPaletteEmpty = colors.length === 0;
   const scaleBaseColor = typeof activePaletteColor === "string" ? activePaletteColor : "";
   const canGenerateScale = isValidHex(scaleBaseColor);
-  const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
+  const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9, copy.roles.base) : [];
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
   const paletteTokens = uniqueTokens(colors.map((_, index) => slugifyVariableBase(getColorName(index))));
@@ -427,15 +442,15 @@ function App() {
   const adjustingColorName =
     adjustingSelectedIndex !== null && colors.includes(adjustingOriginalColor)
       ? getColorName(colors.indexOf(adjustingOriginalColor))
-      : getGeneratedColorName(adjustingColor);
+      : getGeneratedColorName(adjustingColor, locale);
   const adjustingOppositeName =
     adjustingSelectedIndex !== null && colors.includes(adjustingOppositeColor)
       ? getColorName(colors.indexOf(adjustingOppositeColor))
-      : getGeneratedColorName(adjustingOppositeColor);
+      : getGeneratedColorName(adjustingOppositeColor, locale);
   const canAdjustSelectedColor = isValidHex(adjustingColor) && isValidHex(adjustingOppositeColor);
   const adjustingHsl = canAdjustSelectedColor ? hexToHSL(adjustingColor) : null;
   const adjustingContrast = canAdjustSelectedColor ? getContrast(adjustingColor, adjustingOppositeColor) : null;
-  const adjustingRole = adjustingSelectedIndex === 0 ? "Background" : "Text";
+  const adjustingRole = adjustingSelectedIndex === 0 ? copy.roles.background.toLowerCase() : copy.roles.text.toLowerCase();
   const currentMapHueIndex = adjustingHsl !== null ? Math.round(adjustingHsl.h / (360 / COLOR_MAP_HUE_STEPS)) % COLOR_MAP_HUE_STEPS : -1;
   const currentMapLightness = adjustingHsl
     ? COLOR_MAP_LIGHTNESS_STEPS.reduce((closest, lightness) =>
@@ -476,7 +491,9 @@ function App() {
 
   useEffect(() => {
     function syncRoute() {
-      setRoute(getRouteFromPath());
+      const nextRouteInfo = getRouteInfoFromPath();
+      setRoute(nextRouteInfo.route);
+      setLocale(nextRouteInfo.locale);
     }
 
     window.addEventListener("popstate", syncRoute);
@@ -487,21 +504,24 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const meta = PAGE_META[route] ?? PAGE_META.contrast;
+    const meta = getPageMeta(route, locale);
     const canonical = document.querySelector('link[rel="canonical"]');
 
+    document.documentElement.lang = meta.htmlLang;
     document.title = meta.title;
     setMetaContent('meta[name="description"]', meta.description);
+    setMetaContent('meta[property="og:locale"]', meta.ogLocale);
     setMetaContent('meta[property="og:title"]', meta.title);
     setMetaContent('meta[property="og:description"]', meta.description);
     setMetaContent('meta[property="og:url"]', meta.canonical);
     setMetaContent('meta[name="twitter:title"]', meta.title);
     setMetaContent('meta[name="twitter:description"]', meta.description);
+    syncAlternateLinks(route);
 
     if (canonical) {
       canonical.setAttribute("href", meta.canonical);
     }
-  }, [route]);
+  }, [locale, route]);
 
   useEffect(() => {
     if (colors.length === 0) {
@@ -575,7 +595,14 @@ function App() {
     const passesGraphicsUI = contrast >= 3;
 
     const contrastElements = generateContrastStatus(contrast);
-    const uiButtonText = contrast >= 7 ? "Looks excellent" : contrast >= 4.5 ? "Looks good" : contrast >= 3 ? "Almost there" : "Can you even read me?";
+    const uiButtonText =
+      contrast >= 7
+        ? copy.contrast.uiButtonText.excellent
+        : contrast >= 4.5
+          ? copy.contrast.uiButtonText.good
+          : contrast >= 3
+            ? copy.contrast.uiButtonText.close
+            : copy.contrast.uiButtonText.poor;
 
     selectedContrast = {
       colorA: selectedColors[0],
@@ -598,19 +625,19 @@ function App() {
     let contrastIcon;
 
     if (contrast >= 7.1) {
-      contrastStatus = "Great";
+      contrastStatus = copy.statuses.great;
       contrastClass = "color-great";
       contrastIcon = "verified_user";
     } else if (contrast >= 4.5) {
-      contrastStatus = "Good";
+      contrastStatus = copy.statuses.good;
       contrastClass = "color-good";
       contrastIcon = "check";
     } else if (contrast >= 3.1) {
-      contrastStatus = "Ok";
+      contrastStatus = copy.statuses.ok;
       contrastClass = "color-ok";
       contrastIcon = "info";
     } else {
-      contrastStatus = "Poor";
+      contrastStatus = copy.statuses.poor;
       contrastClass = "color-poor";
       contrastIcon = "close";
     }
@@ -766,7 +793,7 @@ function App() {
   }
 
   function getColorName(index) {
-    return colorNames[index]?.trim() || getGeneratedColorName(colors[index]);
+    return colorNames[index]?.trim() || getGeneratedColorName(colors[index], locale);
   }
 
   function updateSelectedColor(selectedIndex, newColor) {
@@ -972,15 +999,15 @@ function App() {
     }, 1200);
   }
 
-  function changeRoute(nextRoute, hash = "") {
-    const nextMeta = PAGE_META[nextRoute] ?? PAGE_META.contrast;
-    const nextPath = `${nextMeta.path}${hash}`;
+  function changeRoute(nextRoute, hash = "", nextLocale = locale) {
+    const nextPath = `${getPathForRoute(nextRoute, nextLocale)}${hash}`;
 
     if (`${window.location.pathname}${window.location.hash}` !== nextPath) {
       window.history.pushState({}, "", nextPath);
     }
 
     setRoute(nextRoute);
+    setLocale(nextLocale);
 
     if (hash) {
       window.setTimeout(() => {
@@ -991,16 +1018,20 @@ function App() {
     }
   }
 
+  function changeLocale(nextLocale) {
+    changeRoute(route, window.location.hash, nextLocale);
+  }
+
   function renderInfoButton(panel) {
-    const hash = panel === "scale" ? "#scale-generator" : "#contrast-checker";
+    const hash = panel === "scale" ? "#scale-generator" : "#manual-compare";
 
     return (
       <div className="info-popover-container">
-        <button type="button" className="info-icon-button" onClick={() => changeRoute("helpFaq", hash)} aria-label="Read more in Help & FAQ">
+        <button type="button" className="info-icon-button" onClick={() => changeRoute("helpFaq", hash)} aria-label={copy.common.readMoreHelp}>
           <span className="material-symbols-outlined" aria-hidden="true">
             info
           </span>
-          <span>Read more in Help & FAQ</span>
+          <span>{copy.common.readMoreHelp}</span>
         </button>
       </div>
     );
@@ -1014,7 +1045,7 @@ function App() {
         <button
           type="button"
           className="panel-help-button"
-          aria-label={`About ${title}`}
+          aria-label={copy.aria.aboutPanel(title)}
           aria-expanded={isOpen}
           onClick={(event) => {
             event.stopPropagation();
@@ -1028,7 +1059,7 @@ function App() {
         <span className="panel-help-popover" role="tooltip">
           <span className="panel-help-popover-header">
             <strong>{title}</strong>
-            <button type="button" className="panel-help-close" aria-label={`Close ${title} help`} onClick={() => setActivePanelHelp("")}>
+            <button type="button" className="panel-help-close" aria-label={copy.aria.closePanelHelp(title)} onClick={() => setActivePanelHelp("")}>
               <span className="material-symbols-outlined" aria-hidden="true">
                 close
               </span>
@@ -1036,7 +1067,7 @@ function App() {
           </span>
           <span>{body}</span>
           <button type="button" className="panel-help-link" onClick={() => changeRoute("helpFaq", hash)}>
-            Read more in Help & FAQ
+            {copy.common.readMoreHelp}
           </button>
         </span>
       </span>
@@ -1045,7 +1076,7 @@ function App() {
 
   function renderCompareModeSelector(className = "") {
     return (
-      <div className={`compare-mode-selector ${className}`} aria-label="Compare mode">
+      <div className={`compare-mode-selector ${className}`} aria-label={copy.contrast.compareMode}>
         <div className="compare-mode-selector-buttons">
           <button
             type="button"
@@ -1053,7 +1084,7 @@ function App() {
             onClick={() => changeCompareMode("manual")}
             disabled={isPaletteEmpty}
           >
-            Manual compare
+            {copy.contrast.manualCompare}
           </button>
           <button
             type="button"
@@ -1061,7 +1092,7 @@ function App() {
             onClick={() => changeCompareMode("palette")}
             disabled={isPaletteEmpty}
           >
-            Palette compare
+            {copy.contrast.paletteCompare}
           </button>
           <button
             type="button"
@@ -1072,14 +1103,14 @@ function App() {
             <span className="material-symbols-outlined" aria-hidden="true">
               download
             </span>
-            Export palette
+            {copy.contrast.exportPalette}
           </button>
         </div>
         <div className="compare-more-menu-shell" ref={compareMoreMenuRef}>
           <button
             type="button"
             className="compare-mode-option compare-mode-more-trigger"
-            aria-label="More compare actions"
+            aria-label={copy.contrast.moreCompareActions}
             aria-haspopup="menu"
             aria-expanded={showCompareMoreMenu}
             onClick={() => setShowCompareMoreMenu((current) => !current)}
@@ -1090,7 +1121,7 @@ function App() {
             </span>
           </button>
           {showCompareMoreMenu && (
-            <div className="compare-more-menu" role="menu" aria-label="Compare actions">
+            <div className="compare-more-menu" role="menu" aria-label={copy.contrast.compareActions}>
               <button
                 type="button"
                 role="menuitem"
@@ -1104,7 +1135,7 @@ function App() {
                 <span className="material-symbols-outlined" aria-hidden="true">
                   download
                 </span>
-                Export palette
+                {copy.contrast.exportPalette}
               </button>
             </div>
           )}
@@ -1117,7 +1148,7 @@ function App() {
     <>
       <nav className="navigation-container">
         <div className="navigation-content">
-          <button type="button" className="logo-container" onClick={() => changeRoute("contrast")} aria-label="Go to Blobb home">
+          <button type="button" className="logo-container" onClick={() => changeRoute("contrast")} aria-label={copy.nav.home}>
             <svg className="logo-svg" role="img" aria-label="Blobb" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 556.85 102.64">
               <g>
                 <path
@@ -1151,8 +1182,8 @@ function App() {
               />
             </svg>
           </button>
-          <div className="navigation-anchor-items" aria-label="Navigation">
-            <div className="route-tabs route-tabs-nav" role="tablist" aria-label="Pages">
+          <div className="navigation-anchor-items" aria-label={copy.nav.navigation}>
+            <div className="route-tabs route-tabs-nav" role="tablist" aria-label={copy.nav.pages}>
               <button
                 type="button"
                 role="tab"
@@ -1160,14 +1191,28 @@ function App() {
                 className={`route-tab ${route === "helpFaq" ? "route-tab-active" : ""}`}
                 onClick={() => changeRoute("helpFaq")}
               >
-                Help & FAQ
+                {copy.nav.helpFaq}
               </button>
+            </div>
+            <div className="language-switcher" role="group" aria-label={copy.language.ariaLabel}>
+              {SUPPORTED_LOCALES.map((localeOption) => (
+                <button
+                  type="button"
+                  key={localeOption}
+                  className={`language-switcher-button ${locale === localeOption ? "language-switcher-button-active" : ""}`}
+                  onClick={() => changeLocale(localeOption)}
+                  aria-label={copy.language.switchTo(LOCALES[localeOption].label)}
+                  aria-pressed={locale === localeOption}
+                >
+                  {LOCALES[localeOption].shortLabel}
+                </button>
+              ))}
             </div>
             <button
               type="button"
               className="theme-toggle-button"
               onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={copy.nav.switchTheme(theme)}
               aria-pressed={theme === "dark"}
             >
               <span className="material-symbols-outlined" aria-hidden="true">
@@ -1179,7 +1224,7 @@ function App() {
       </nav>
       <div className="tool-switcher-shell">
         <div className="tool-switcher-content">
-          <div className="route-tabs tool-switcher" role="tablist" aria-label="Pages">
+          <div className="route-tabs tool-switcher" role="tablist" aria-label={copy.nav.pages}>
             <button
               type="button"
               role="tab"
@@ -1187,7 +1232,7 @@ function App() {
               className={`route-tab ${route === "contrast" ? "route-tab-active" : ""}`}
               onClick={() => changeRoute("contrast")}
             >
-              Contrast checker
+              {copy.nav.contrastChecker}
             </button>
             <button
               type="button"
@@ -1196,7 +1241,7 @@ function App() {
               className={`route-tab ${route === "scale" ? "route-tab-active" : ""}`}
               onClick={() => changeRoute("scale")}
             >
-              Scale generator
+              {copy.nav.scaleGenerator}
             </button>
           </div>
         </div>
@@ -1209,14 +1254,13 @@ function App() {
                 <header className="intro-section">
                   <div>
                     <div>
-                      <h1>Check whether your colors or palette is readable</h1>
+                      <h1>{copy.contrast.heroTitle}</h1>
                       <p>
-                        Compare foreground and background colors against{" "}
+                        {copy.contrast.heroBody.split("WCAG")[0]}
                         <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
                           WCAG
-                        </a>{" "}
-                        contrast guidelines. Verify that text, icons, buttons, and other UI elements maintain sufficient contrast for readability and
-                        accessibility.
+                        </a>
+                        {copy.contrast.heroBody.split("WCAG")[1]}
                       </p>
                       {renderInfoButton("contrast")}
                     </div>
@@ -1228,20 +1272,20 @@ function App() {
                       <div className="palette-toolbar">
                         <div>
                           <div className="panel-heading-row">
-                            <p className="card-heading">Your palette</p>
+                            <p className="card-heading">{copy.contrast.paletteHelpTitle}</p>
                             {renderPanelHelp({
                               id: "contrast-palette",
-                              title: "Your palette",
-                              body: "Add and manage the colors you want to test across the tools.",
+                              title: copy.contrast.paletteHelpTitle,
+                              body: copy.contrast.paletteHelpBody,
                               hash: "#your-palette",
                             })}
                           </div>
-                          <p className="palette-count">{colors.length}/10 colors</p>
+                          <p className="palette-count">{copy.contrast.paletteCount(colors.length)}</p>
                         </div>
                         <div className="add-color-control">
                           <input
                             className="color-name-input"
-                            placeholder="Name color"
+                            placeholder={copy.contrast.nameColor}
                             value={colorNameInput}
                             onChange={(e) => setColorNameInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -1264,7 +1308,7 @@ function App() {
                             />
                           </div>
                           <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                            Add
+                            {copy.common.add}
                           </button>
                         </div>
                       </div>
@@ -1272,7 +1316,7 @@ function App() {
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
                             <span className="material-symbols-outlined">palette</span>
-                            <p>Add two colors to compare.</p>
+                            <p>{copy.contrast.addTwoColors}</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
@@ -1291,17 +1335,17 @@ function App() {
                                 ></div>
                                 {compareMode === "manual" && (isBackgroundColor || isTextColor) && (
                                   <div className="palette-swatch-tags">
-                                    {isBackgroundColor && <span>Bg</span>}
-                                    {isTextColor && <span>Text</span>}
+                                    {isBackgroundColor && <span>{copy.roles.bgShort}</span>}
+                                    {isTextColor && <span>{copy.roles.text}</span>}
                                   </div>
                                 )}
-                                <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                                <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={copy.aria.editColor(getColorName(index), color)}>
                                   <span className="material-symbols-outlined">edit</span>
                                 </button>
                                 <button
                                   className="delete-color-button"
                                   onClick={() => deleteColor(index)}
-                                  aria-label={`Delete ${getColorName(index)} ${color}`}
+                                  aria-label={copy.aria.deleteColor(getColorName(index), color)}
                                 >
                                   <span className="material-symbols-outlined">close</span>
                                 </button>
@@ -1309,7 +1353,7 @@ function App() {
                               <button
                                 className="copy-hex-button"
                                 onClick={(event) => copyColor(color, event)}
-                                aria-label={`Copy ${getColorName(index)} ${color}`}
+                                aria-label={copy.aria.copyColor(getColorName(index), color)}
                               >
                                 <span>{color}</span>
                                 <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
@@ -1325,32 +1369,32 @@ function App() {
                     <div className="compare-color-container">
                       <div className="compare-color-header">
                         <div className="panel-heading-row">
-                          <p className="card-heading">Selected colors</p>
+                          <p className="card-heading">{copy.contrast.selectedColors}</p>
                           {renderPanelHelp({
                             id: "selected-colors",
-                            title: "Selected colors",
-                            body: "Choose which palette colors act as text and background in manual compare.",
+                            title: copy.contrast.selectedColors,
+                            body: copy.contrast.selectedHelpBody,
                             hash: "#selected-colors",
                           })}
                         </div>
                         <button className="swap-color-button" onClick={swapSelectedColors} disabled={!selectedContrast}>
                           <span className="material-symbols-outlined">swap_horiz</span>
-                          Swap
+                          {copy.contrast.swap}
                         </button>
                       </div>
                       <div className="selected-slot-control">
                         <button className={activeSelectedIndex === 1 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(1)}>
-                          Text
+                          {copy.roles.text}
                         </button>
                         <button className={activeSelectedIndex === 0 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(0)}>
-                          Background
+                          {copy.roles.background}
                         </button>
                       </div>
                       {selectedContrast ? (
                         <div className="compare-color-controls">
                           {[
-                            { label: "Text color", color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
-                            { label: "Background color", color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
+                            { label: copy.roles.textColor, color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
+                            { label: copy.roles.backgroundColor, color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
                           ].map((selectedColor) => (
                             <div
                               className={`compare-color-item ${activeSelectedIndex === selectedColor.selectedIndex ? "compare-color-item-active" : ""}`}
@@ -1360,7 +1404,7 @@ function App() {
                               <div className="compare-color-title-row">
                                 <p className="card-heading">{selectedColor.label}</p>
                                 <span className="selected-chip" aria-hidden={activeSelectedIndex !== selectedColor.selectedIndex}>
-                                  Selected
+                                  {copy.common.selected}
                                 </span>
                               </div>
                               <div className="selected-color-body">
@@ -1377,12 +1421,12 @@ function App() {
                                           e.currentTarget.blur();
                                         }
                                       }}
-                                      aria-label={`${selectedColor.label} hex value`}
+                                      aria-label={copy.aria.selectedHex(selectedColor.label)}
                                     />
                                     <button
                                       className="copy-selected-color-button"
                                       onClick={(event) => copyColor(selectedColor.color, event)}
-                                      aria-label={`Copy ${selectedColor.color}`}
+                                      aria-label={copy.aria.copyHex(selectedColor.color)}
                                     >
                                       <span className="material-symbols-outlined">{copiedColor === selectedColor.color ? "check" : "content_copy"}</span>
                                     </button>
@@ -1391,13 +1435,13 @@ function App() {
                                     type="button"
                                     className="tune-selected-color-button"
                                     onClick={(event) => openColorAdjuster(selectedColor.selectedIndex, event)}
-                                    aria-label={`Tune ${selectedColor.label} with contrast map`}
+                                    aria-label={copy.aria.tuneSelected(selectedColor.label)}
                                   >
                                     <span className="material-symbols-outlined" aria-hidden="true">
                                       tune
                                     </span>
-                                    <span className="tune-button-label-full">Tune with contrast map</span>
-                                    <span className="tune-button-label-short">Tune color</span>
+                                    <span className="tune-button-label-full">{copy.adjust.tuneWithMap}</span>
+                                    <span className="tune-button-label-short">{copy.adjust.tuneColor}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1406,7 +1450,7 @@ function App() {
                         </div>
                       ) : (
                         <div className="empty-panel-state">
-                          <p>{canComparePalette ? "No selection yet" : "Add two colors to compare."}</p>
+                          <p>{canComparePalette ? copy.contrast.noSelection : copy.contrast.addTwoColors}</p>
                         </div>
                       )}
                     </div>
@@ -1418,7 +1462,7 @@ function App() {
                   {compareMode === "manual" && !selectedContrast && (
                     <div className="select-color-result-container">
                       <div className="quiet-empty-state">
-                        <p>{canComparePalette ? "Select two colors from your palette." : "Add two colors to compare."}</p>
+                        <p>{canComparePalette ? copy.contrast.selectTwoColors : copy.contrast.addTwoColors}</p>
                       </div>
                     </div>
                   )}
@@ -1427,11 +1471,11 @@ function App() {
                       <div className="compare-color-section">
                         <div className="compare-color-text-container">
                           <div className="panel-heading-row contrast-heading-row">
-                            <p className="compare-info-text card-heading">Contrast</p>
+                            <p className="compare-info-text card-heading">{copy.contrast.contrast}</p>
                             {renderPanelHelp({
                               id: "contrast-ratio",
-                              title: "Contrast",
-                              body: "Shows the WCAG ratio and whether the selected pair passes common text and UI thresholds.",
+                              title: copy.contrast.contrast,
+                              body: copy.contrast.contrastHelpBody,
                               hash: "#manual-compare",
                             })}
                           </div>
@@ -1445,14 +1489,14 @@ function App() {
                           <div className="contrast-checker-container">
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text">
-                                <h4>Large text</h4>
+                                <h4>{copy.contrast.largeText}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesLargeAA ? "success" : "error"}`}>
                                   {selectedContrast.passesLargeAA ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {copy.common.level} AA
                                 </p>
                                 <p className={`contrast-check ${selectedContrast.passesLargeAAA ? "success" : "error"}`}>
                                   {selectedContrast.passesLargeAAA ? (
@@ -1460,27 +1504,27 @@ function App() {
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AAA
+                                  {copy.common.level} AAA
                                 </p>
                               </div>
                               <p className="usage-note">
                                 {selectedContrast.passesLargeAAA
-                                  ? "Strong choice for large headings and bold display text."
+                                  ? copy.contrast.usageNotes.largeStrong
                                   : selectedContrast.passesLargeAA
-                                    ? "Use for large headings and bold display text, but avoid for critical or long-form reading."
-                                    : "Not recommended for headings or display text without adjusting one color."}
+                                    ? copy.contrast.usageNotes.largeOk
+                                    : copy.contrast.usageNotes.largeAvoid}
                               </p>
                             </div>
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text">
-                                <h4>Small text</h4>
+                                <h4>{copy.contrast.smallText}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesSmallAA ? "success" : "error"}`}>
                                   {selectedContrast.passesSmallAA ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {copy.common.level} AA
                                 </p>
                                 <p className={`contrast-check ${selectedContrast.passesSmallAAA ? "success" : "error"}`}>
                                   {selectedContrast.passesSmallAAA ? (
@@ -1488,44 +1532,44 @@ function App() {
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AAA
+                                  {copy.common.level} AAA
                                 </p>
                               </div>
                               <p className="usage-note">
                                 {selectedContrast.passesSmallAAA
-                                  ? "Strong choice for body copy, labels, forms, and small UI text."
+                                  ? copy.contrast.usageNotes.smallStrong
                                   : selectedContrast.passesSmallAA
-                                    ? "Use for body copy, labels, forms, and standard UI text, but avoid for small text that needs extra-high contrast."
-                                    : "Avoid for body copy, labels, forms, and small UI text."}
+                                    ? copy.contrast.usageNotes.smallOk
+                                    : copy.contrast.usageNotes.smallAvoid}
                               </p>
                             </div>
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text contrast-checker-text-single">
-                                <h4>Graphics & UI Elements</h4>
+                                <h4>{copy.contrast.graphicsUi}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesGraphicsUI ? "success" : "error"}`}>
                                   {selectedContrast.passesGraphicsUI ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {copy.common.level} AA
                                 </p>
                               </div>
                               <p className="usage-note">
                                 {selectedContrast.passesGraphicsUI
-                                  ? "Good for icons, control borders, focus states, and visual indicators."
-                                  : "Avoid for icons, control states, focus indicators, and important graphics."}
+                                  ? copy.contrast.usageNotes.uiOk
+                                  : copy.contrast.usageNotes.uiAvoid}
                               </p>
                             </div>
                           </div>
                         </div>
                         <section className="preview-section">
                           <div className="panel-heading-row">
-                            <p className="card-heading">Preview</p>
+                            <p className="card-heading">{copy.contrast.preview}</p>
                             {renderPanelHelp({
                               id: "preview",
-                              title: "Preview",
-                              body: "Shows the selected pair in UI-like examples so the ratio is easier to judge visually.",
+                              title: copy.contrast.preview,
+                              body: copy.contrast.previewHelpBody,
                               hash: "#manual-compare",
                             })}
                           </div>
@@ -1537,28 +1581,28 @@ function App() {
                             }}
                           >
                             <div className="preview-topbar">
-                              <span className="preview-status-pill">Live preview</span>
+                              <span className="preview-status-pill">{copy.contrast.livePreview}</span>
                             </div>
                             <div className="preview-hero-row">
                               <div>
-                                <h3 className="preview-title">Large text, 24px medium</h3>
-                                <p className="preview-text-24-medium">Large text, 24px medium</p>
-                                <p className="preview-text-19-bold">Large text, 19px bold</p>
+                                <h3 className="preview-title">{copy.contrast.previewLargeTitle}</h3>
+                                <p className="preview-text-24-medium">{copy.contrast.previewLargeTitle}</p>
+                                <p className="preview-text-19-bold">{copy.contrast.previewLargeBold}</p>
                               </div>
                               <div className="preview-metric">
                                 <strong>{selectedContrast.contrast.toFixed(1)}</strong>
-                                <span>contrast</span>
+                                <span>{copy.contrast.contrastMetric}</span>
                               </div>
                             </div>
                             <div className="preview-content-grid">
                               <div className="preview-sample-block">
-                                <h4>Small text</h4>
-                                <p className="preview-text-16-medium">Small text, 16px medium weight</p>
-                                <p className="preview-text-16-regular">Small text, 16px regular weight</p>
-                                <p className="preview-text-14-regular">Caption text, 14px regular weight</p>
+                                <h4>{copy.contrast.smallText}</h4>
+                                <p className="preview-text-16-medium">{copy.contrast.previewSmallMedium}</p>
+                                <p className="preview-text-16-regular">{copy.contrast.previewSmallRegular}</p>
+                                <p className="preview-text-14-regular">{copy.contrast.previewCaption}</p>
                               </div>
                               <div className="preview-sample-block preview-ui-sample">
-                                <h4>Graphics & UI Elements</h4>
+                                <h4>{copy.contrast.graphicsUi}</h4>
                                 <div className="preview-progress-track">
                                   <div className="preview-progress-fill" style={{ width: `${selectedContrast.contrastProgress}%` }}></div>
                                 </div>
@@ -1583,7 +1627,7 @@ function App() {
                       {(!canComparePalette || !activePaletteColor) && (
                         <div className="quiet-empty-state">
                           <span className="material-symbols-outlined">ads_click</span>
-                          <p>{canComparePalette ? "Select a color from your palette to compare." : "Add two colors to compare."}</p>
+                          <p>{canComparePalette ? copy.contrast.selectPaletteColor : copy.contrast.addTwoColors}</p>
                         </div>
                       )}
                       {canComparePalette && activePaletteColor && (
@@ -1591,45 +1635,26 @@ function App() {
                           <div className="palette-compare-intro scale-compare-intro">
                             <div>
                               <div className="panel-heading-row">
-                                <p className="card-heading">Palette compare</p>
+                                <p className="card-heading">{copy.contrast.paletteCompare}</p>
                                 {renderPanelHelp({
                                   id: "palette-compare",
-                                  title: "Palette compare",
-                                  body: "Scans your palette against itself and highlights which pairs work for normal text.",
+                                  title: copy.contrast.paletteCompare,
+                                  body: copy.contrast.paletteCompareHelpBody,
                                   hash: "#palette-compare",
                                 })}
                               </div>
                               <p className="palette-compare-copy palette-compare-copy-grid">
-                                {paletteCompareView === "list" ? (
-                                  <>
-                                    Compare{" "}
-                                    <strong>
-                                      {activePaletteColorName} ({activePaletteColor})
-                                    </strong>{" "}
-                                    against the rest of your palette as a simple list. Each item shows the contrast result for that pair (normal text).
-                                  </>
-                                ) : (
-                                  <>
-                                    Compare every color in your palette against every other color. The highlighted row and column show where{" "}
-                                    <strong>
-                                      {activePaletteColorName} ({activePaletteColor})
-                                    </strong>{" "}
-                                    works as either text or background.
-                                  </>
-                                )}
+                                {paletteCompareView === "list"
+                                  ? copy.contrast.paletteCompareListCopy(activePaletteColorName, activePaletteColor)
+                                  : copy.contrast.paletteCompareGridCopy(activePaletteColorName, activePaletteColor)}
                               </p>
                               <p className="palette-compare-copy palette-compare-copy-list">
-                                Compare{" "}
-                                <strong>
-                                  {activePaletteColorName} ({activePaletteColor})
-                                </strong>{" "}
-                                against the rest of your palette as a simple list. Each item shows the contrast result for that pair (normal text). Select another
-                                swatch in your palette to change the active color.
+                                {copy.contrast.paletteCompareMobileCopy(activePaletteColorName, activePaletteColor)}
                               </p>
                             </div>
                           </div>
                           <div className="palette-compare-tools">
-                            <div className="palette-view-toggle" role="tablist" aria-label="Palette compare view">
+                            <div className="palette-view-toggle" role="tablist" aria-label={copy.contrast.paletteCompareView}>
                               <button
                                 type="button"
                                 role="tab"
@@ -1637,7 +1662,7 @@ function App() {
                                 className={`palette-view-option ${paletteCompareView === "grid" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setPaletteCompareView("grid")}
                               >
-                                Grid
+                                {copy.common.grid}
                               </button>
                               <button
                                 type="button"
@@ -1646,7 +1671,7 @@ function App() {
                                 className={`palette-view-option ${paletteCompareView === "list" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setPaletteCompareView("list")}
                               >
-                                List
+                                {copy.common.list}
                               </button>
                             </div>
                             <label className="palette-pass-switch">
@@ -1654,7 +1679,7 @@ function App() {
                               <span className="switch-track" aria-hidden="true">
                                 <span className="switch-thumb"></span>
                               </span>
-                              <span>Focus passing pairs</span>
+                              <span>{copy.contrast.focusPassingPairs}</span>
                             </label>
                           </div>
                           <div
@@ -1716,7 +1741,7 @@ function App() {
                                       onClick={() => selectedColor(backgroundColor)}
                                     >
                                       <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
-                                      <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                      <strong>{sameColor ? copy.common.same : passes ? copy.common.pass : copy.common.fail}</strong>
                                       <small>{contrast.toFixed(1)} : 1</small>
                                     </div>
                                   );
@@ -1756,7 +1781,7 @@ function App() {
                                   </div>
                                   <div className="palette-mobile-pair-result">
                                     <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
-                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                    <strong>{sameColor ? copy.common.same : passes ? copy.common.pass : copy.common.fail}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
                                 </div>
@@ -1775,11 +1800,8 @@ function App() {
               <header className="intro-section">
                 <div>
                   <div>
-                    <h1>Generate a clean scale from one color</h1>
-                    <p>
-                      Select a color from your palette to generate darker and lighter UI steps around it. Create related shades for surfaces, borders, hover
-                      states, selected states, and readable color combinations that stay visually consistent.
-                    </p>
+                    <h1>{copy.scale.heroTitle}</h1>
+                    <p>{copy.scale.heroBody}</p>
                     {renderInfoButton("scale")}
                   </div>
                 </div>
@@ -1791,20 +1813,20 @@ function App() {
                       <div className="palette-toolbar">
                         <div>
                           <div className="panel-heading-row">
-                            <p className="card-heading">Your palette</p>
+                            <p className="card-heading">{copy.contrast.paletteHelpTitle}</p>
                             {renderPanelHelp({
                               id: "scale-palette",
-                              title: "Your palette",
-                              body: "Select the base color you want to turn into a scale.",
+                              title: copy.contrast.paletteHelpTitle,
+                              body: copy.scale.paletteHelpBody,
                               hash: "#your-palette",
                             })}
                           </div>
-                          <p className="palette-count">{colors.length}/10 colors</p>
+                          <p className="palette-count">{copy.contrast.paletteCount(colors.length)}</p>
                         </div>
                         <div className="add-color-control">
                           <input
                             className="color-name-input"
-                            placeholder="Name color"
+                            placeholder={copy.contrast.nameColor}
                             value={colorNameInput}
                             onChange={(e) => setColorNameInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -1827,7 +1849,7 @@ function App() {
                             />
                           </div>
                           <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                            Add
+                            {copy.common.add}
                           </button>
                         </div>
                       </div>
@@ -1835,7 +1857,7 @@ function App() {
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
                             <span className="material-symbols-outlined">palette</span>
-                            <p>Add one color to genereate scale.</p>
+                            <p>{copy.scale.addOneColor}</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
@@ -1851,16 +1873,16 @@ function App() {
                                 ></div>
                                 {isSelected && (
                                   <div className="palette-swatch-tags" aria-hidden="true">
-                                    <span>Base</span>
+                                    <span>{copy.roles.base}</span>
                                   </div>
                                 )}
-                                <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
+                                <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={copy.aria.editColor(getColorName(index), color)}>
                                   <span className="material-symbols-outlined">edit</span>
                                 </button>
                                 <button
                                   className="delete-color-button"
                                   onClick={() => deleteColor(index)}
-                                  aria-label={`Delete ${getColorName(index)} ${color}`}
+                                  aria-label={copy.aria.deleteColor(getColorName(index), color)}
                                 >
                                   <span className="material-symbols-outlined">close</span>
                                 </button>
@@ -1868,7 +1890,7 @@ function App() {
                               <button
                                 className="copy-hex-button"
                                 onClick={(event) => copyColor(color, event)}
-                                aria-label={`Copy ${getColorName(index)} ${color}`}
+                                aria-label={copy.aria.copyColor(getColorName(index), color)}
                               >
                                 <span>{color}</span>
                                 <span className="material-symbols-outlined">{copiedColor === color ? "check" : "content_copy"}</span>
@@ -1884,27 +1906,24 @@ function App() {
 
                 <section
                   className={`scale-generator-panel scale-page-scale-row ${isPaletteEmpty ? "scale-generator-panel-palette-empty" : ""}`}
-                  aria-label="Scale generator"
+                  aria-label={copy.scale.ariaLabel}
                 >
                   <div className="scale-generator-header">
                     <div>
                       <div className="panel-heading-row">
-                        <p className="card-heading">Generated scale</p>
+                        <p className="card-heading">{copy.scale.generatedScale}</p>
                         {renderPanelHelp({
                           id: "scale",
-                          title: "Generated scale",
-                          body: "Generates lighter and darker steps from one selected base color.",
+                          title: copy.scale.generatedScale,
+                          body: copy.scale.generatedScaleHelpBody,
                           hash: "#scale-generator",
                         })}
                       </div>
                       <p className="scale-generator-subtitle">
                         {canGenerateScale ? (
-                          <>
-                            Build lighter and darker steps from {activePaletteColorName || "the selected color"}{" "}
-                            <span className="mono">({scaleBaseColor})</span>. Use the steps for surfaces, borders, hover states, and readable pairings.
-                          </>
+                          copy.scale.subtitle(activePaletteColorName, scaleBaseColor)
                         ) : (
-                          "Select a color in your palette to generate its scale."
+                          copy.scale.selectColor
                         )}
                       </p>
                     </div>
@@ -1929,7 +1948,7 @@ function App() {
                           </button>
                         ))}
                       </div>
-                      <div className="scale-panel-switch" role="tablist" aria-label="Scale tools">
+                      <div className="scale-panel-switch" role="tablist" aria-label={copy.scale.scaleTools}>
                         <button
                           type="button"
                           role="tab"
@@ -1940,7 +1959,7 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             contrast
                           </span>
-                          Compare scale
+                          {copy.scale.compareScale}
                         </button>
                         <button
                           type="button"
@@ -1952,22 +1971,19 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             code
                           </span>
-                          Export scale
+                          {copy.scale.exportScale}
                         </button>
                       </div>
                       {activeScalePanel === "compare" && (
-                        <div className="palette-compare-section scale-compare-section" aria-label="Scale contrast comparison">
+                        <div className="palette-compare-section scale-compare-section" aria-label={copy.scale.scaleContrastComparison}>
                           <div className="palette-compare-intro scale-compare-intro">
                             <div>
-                              <p className="card-heading scale-contrast-heading">Scale contrast</p>
-                              <p className="scale-contrast-copy">
-                                Compare the generated scale steps against each other to find readable text and background pairs. Pairs marked pass meet the
-                                normal text threshold.
-                              </p>
+                              <p className="card-heading scale-contrast-heading">{copy.scale.scaleContrast}</p>
+                              <p className="scale-contrast-copy">{copy.scale.scaleContrastCopy}</p>
                             </div>
                           </div>
                           <div className="palette-compare-tools">
-                            <div className="palette-view-toggle" role="tablist" aria-label="Scale compare view">
+                            <div className="palette-view-toggle" role="tablist" aria-label={copy.scale.scaleCompareView}>
                               <button
                                 type="button"
                                 role="tab"
@@ -1975,7 +1991,7 @@ function App() {
                                 className={`palette-view-option ${scaleCompareView === "grid" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setScaleCompareView("grid")}
                               >
-                                Grid
+                                {copy.common.grid}
                               </button>
                               <button
                                 type="button"
@@ -1984,7 +2000,7 @@ function App() {
                                 className={`palette-view-option ${scaleCompareView === "list" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setScaleCompareView("list")}
                               >
-                                List
+                                {copy.common.list}
                               </button>
                             </div>
                             <label className="palette-pass-switch">
@@ -1992,7 +2008,7 @@ function App() {
                               <span className="switch-track" aria-hidden="true">
                                 <span className="switch-thumb"></span>
                               </span>
-                              <span>Focus passing pairs</span>
+                              <span>{copy.contrast.focusPassingPairs}</span>
                             </label>
                           </div>
                           <div
@@ -2054,7 +2070,7 @@ function App() {
                                       onClick={() => setActiveScaleCompareColor(backgroundItem.hex)}
                                     >
                                       <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
-                                      <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                      <strong>{sameColor ? copy.common.same : passes ? copy.common.pass : copy.common.fail}</strong>
                                       <small>{contrast.toFixed(1)} : 1</small>
                                     </div>
                                   );
@@ -2067,8 +2083,8 @@ function App() {
                               scaleCompareView === "grid" ? "palette-compare-view-hidden" : "palette-compare-view-active"
                             }`}
                           >
-                            <p className="scale-compare-list-title">Select active scale color</p>
-                            <div className="scale-compare-list-selector" aria-label="Select active scale color">
+                            <p className="scale-compare-list-title">{copy.scale.selectActiveScaleColor}</p>
+                            <div className="scale-compare-list-selector" aria-label={copy.scale.selectActiveScaleColor}>
                               {scaleColors.map((item, index) => {
                                 const isSelected = item.hex === scaleCompareActiveColor;
                                 return (
@@ -2112,7 +2128,7 @@ function App() {
                                   </div>
                                   <div className="palette-mobile-pair-result">
                                     <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
-                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                    <strong>{sameColor ? copy.common.same : passes ? copy.common.pass : copy.common.fail}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
                                 </div>
@@ -2125,11 +2141,11 @@ function App() {
                         <div className="scale-css-preview">
                           <div className="scale-css-preview-header">
                             <div>
-                              <p className="card-heading">Developer export</p>
-                              <p>Copy the scale as CSS variables, a JS object, or JSON tokens.</p>
+                              <p className="card-heading">{copy.scale.developerExport}</p>
+                              <p>{copy.scale.developerExportCopy}</p>
                             </div>
                             <div className="scale-css-controls">
-                              <div className="scale-css-format-selector" aria-label="Developer export type">
+                              <div className="scale-css-format-selector" aria-label={copy.scale.developerExportType}>
                                 {["css", "js", "json"].map((type) => (
                                   <button
                                     key={type}
@@ -2142,7 +2158,7 @@ function App() {
                                   </button>
                                 ))}
                               </div>
-                              <div className="scale-css-format-selector" aria-label="Color value format">
+                              <div className="scale-css-format-selector" aria-label={copy.common.colorValueFormat}>
                                 {["hex", "rgb", "hsl"].map((format) => (
                                   <button
                                     key={format}
@@ -2159,7 +2175,7 @@ function App() {
                                 <span className="material-symbols-outlined" aria-hidden="true">
                                   {copiedColor === "scale-ase" ? "check" : "download"}
                                 </span>
-                                Download ASE
+                                {copy.common.downloadAse}
                               </button>
                             </div>
                           </div>
@@ -2168,7 +2184,7 @@ function App() {
                               <span className="material-symbols-outlined" aria-hidden="true">
                                 {copiedColor === "scale-css" ? "check" : "content_copy"}
                               </span>
-                              Copy snippet
+                              {copy.common.copySnippet}
                             </button>
                             <pre className="scale-css-code">
                               <code>{scaleDeveloperSnippet}</code>
@@ -2180,14 +2196,14 @@ function App() {
                   ) : (
                     <div className="empty-panel-state">
                       <span className="material-symbols-outlined">palette</span>
-                      <p>Select a color to generate a scale.</p>
+                      <p>{copy.scale.selectColorShort}</p>
                     </div>
                   )}
                 </section>
               </div>
             </div>
           ) : (
-            <FaqPage />
+            <FaqPage locale={locale} />
           )}
         </div>
       </section>
@@ -2198,12 +2214,12 @@ function App() {
               <div>
                 <div className="contrast-adjust-title-row">
                   <p className="card-heading" id="contrast-adjust-title">
-                    Tune {adjustingRole.toLowerCase()} color
+                    {copy.adjust.tuneTitle(adjustingRole)}
                   </p>
                   <button
                     type="button"
                     className="contrast-adjust-help-button"
-                    aria-label="Show color tuning help"
+                    aria-label={copy.adjust.showHelp}
                     aria-expanded={showAdjustInfo}
                     onClick={() => setShowAdjustInfo((current) => !current)}
                   >
@@ -2212,20 +2228,15 @@ function App() {
                     </span>
                   </button>
                 </div>
-                <p>
-                  Find colors that pass against {adjustingOppositeName} <span className="mono">({adjustingOppositeColor})</span>.
-                </p>
+                <p>{copy.adjust.findColors(adjustingOppositeName, adjustingOppositeColor)}</p>
               </div>
-              <button className="edit-color-modal-close" onClick={closeColorAdjuster} aria-label="Close color adjustment dialog">
+              <button className="edit-color-modal-close" onClick={closeColorAdjuster} aria-label={copy.adjust.closeDialog}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             {showAdjustInfo && (
               <div className="contrast-adjust-help-panel">
-                <p>
-                  The map tests possible colors against the opposite selected color. Click a cell to preview it, adjust HSL if needed, then save when the
-                  contrast and color feel right.
-                </p>
+                <p>{copy.adjust.helpText}</p>
               </div>
             )}
             <div className="contrast-adjust-layout">
@@ -2237,20 +2248,20 @@ function App() {
                     color: adjustingSelectedIndex === 1 ? adjustingColor : adjustingOppositeColor,
                   }}
                 >
-                  <strong>Readable text</strong>
+                  <strong>{copy.adjust.readableText}</strong>
                   <span>
-                    {adjustingContrast.toFixed(2)} : 1 {adjustingContrast >= 4.5 ? "Pass" : "Fail"}
+                    {adjustingContrast.toFixed(2)} : 1 {adjustingContrast >= 4.5 ? copy.common.pass : copy.common.fail}
                   </span>
                 </div>
                 <div className="contrast-adjust-color-row">
                   <div>
-                    <span>Draft</span>
+                    <span>{copy.adjust.draft}</span>
                     <strong>
                       {adjustingColorName} ({adjustingColor})
                     </strong>
                   </div>
                   <div>
-                    <span>Against</span>
+                    <span>{copy.adjust.against}</span>
                     <strong>
                       {adjustingOppositeName} ({adjustingOppositeColor})
                     </strong>
@@ -2260,10 +2271,10 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     swap_horiz
                   </span>
-                  Tune {adjustingSelectedIndex === 0 ? "text" : "background"} instead
+                  {copy.adjust.tuneInstead(adjustingSelectedIndex === 0 ? copy.roles.text.toLowerCase() : copy.roles.background.toLowerCase())}
                 </button>
                 <label className="edit-color-modal-field">
-                  Hex value
+                  {copy.common.hexValue}
                   <div className="hex-input-shell contrast-adjust-hex-shell">
                     <span>#</span>
                     <input
@@ -2281,7 +2292,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Hue <strong>{adjustingHsl.h}</strong>
+                    {copy.adjust.hue} <strong>{adjustingHsl.h}</strong>
                   </span>
                   <input
                     className="hue-slider"
@@ -2294,7 +2305,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Saturation <strong>{adjustingHsl.s}%</strong>
+                    {copy.adjust.saturation} <strong>{adjustingHsl.s}%</strong>
                   </span>
                   <input
                     className="contrast-adjust-range"
@@ -2307,7 +2318,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Lightness <strong>{adjustingHsl.l}%</strong>
+                    {copy.adjust.lightness} <strong>{adjustingHsl.l}%</strong>
                   </span>
                   <input
                     className="contrast-adjust-range"
@@ -2322,21 +2333,21 @@ function App() {
               <div className="contrast-map-panel">
                 <div className="contrast-map-header">
                   <div>
-                    <p className="card-heading">Passing color map</p>
-                    <p>Hue runs left to right. Lightness runs from light to dark.</p>
+                    <p className="card-heading">{copy.adjust.passingMap}</p>
+                    <p>{copy.adjust.passingMapCopy}</p>
                   </div>
-                  <div className="contrast-map-legend" aria-label="Contrast map legend">
+                  <div className="contrast-map-legend" aria-label={copy.adjust.legend}>
                     <span>
                       <span className="material-symbols-outlined" aria-hidden="true">
                         check
                       </span>
-                      Pass
+                      {copy.common.pass}
                     </span>
                     <span>
                       <span className="material-symbols-outlined" aria-hidden="true">
                         close
                       </span>
-                      Fail
+                      {copy.common.fail}
                     </span>
                   </div>
                 </div>
@@ -2358,7 +2369,7 @@ function App() {
                           key={`${lightness}-${hue}`}
                           style={{ backgroundColor: candidate, color: getReadableTextColor(candidate) }}
                           onClick={() => setAdjustingDraftColor(candidate)}
-                          aria-label={`${candidate}, ${contrast.toFixed(1)} to 1, ${passes ? "passes" : "fails"}`}
+                          aria-label={copy.aria.mapCell(candidate, contrast.toFixed(1), passes)}
                           title={`${candidate} - ${contrast.toFixed(1)}:1`}
                         >
                           <span className="material-symbols-outlined" aria-hidden="true">
@@ -2371,8 +2382,8 @@ function App() {
                 </div>
                 <div className="passing-candidates-panel">
                   <div>
-                    <p className="card-heading">Passing candidates</p>
-                    <p>Tap a larger swatch to preview a passing option.</p>
+                    <p className="card-heading">{copy.adjust.passingCandidates}</p>
+                    <p>{copy.adjust.passingCandidatesCopy}</p>
                   </div>
                   <div className="passing-candidates-grid">
                     {COLOR_MAP_LIGHTNESS_STEPS.flatMap((lightness) =>
@@ -2406,11 +2417,11 @@ function App() {
             <div className="contrast-adjust-actions">
               <button type="button" className="edit-color-action-button edit-color-action-primary" onClick={saveColorAdjustment}>
                 <span className="material-symbols-outlined">check</span>
-                Save color change
+                {copy.adjust.saveColorChange}
               </button>
               <button type="button" className="edit-color-action-button edit-color-action-secondary" onClick={closeColorAdjuster}>
                 <span className="material-symbols-outlined">close</span>
-                Cancel
+                {copy.common.cancel}
               </button>
             </div>
           </div>
@@ -2422,27 +2433,27 @@ function App() {
             <div className="edit-color-modal-header">
               <div>
                 <p className="card-heading" id="edit-color-title">
-                  Edit color
+                  {copy.edit.editColor}
                 </p>
                 <p>{editingColor}</p>
               </div>
-              <button className="edit-color-modal-close" onClick={cancelEditColor} aria-label="Close edit color dialog">
+              <button className="edit-color-modal-close" onClick={cancelEditColor} aria-label={copy.edit.closeDialog}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="edit-color-modal-preview" style={{ backgroundColor: canSaveEditColor ? cleanedEditColorInput : editingColor }}></div>
             <label className="edit-color-modal-field">
-              Color name
+              {copy.edit.colorName}
               <input
                 className="edit-color-name-input"
-                placeholder="Color name"
+                placeholder={copy.edit.colorName}
                 value={editColorNameInput}
                 onChange={(e) => setEditColorNameInput(e.target.value)}
                 autoFocus
               />
             </label>
             <label className="edit-color-modal-field">
-              Hex value
+              {copy.common.hexValue}
               <input className="edit-color-input" value={editColorInput} onChange={(e) => setEditColorInput(e.target.value)} />
             </label>
             <div className="edit-color-actions">
@@ -2452,11 +2463,11 @@ function App() {
                 disabled={!canSaveEditColor}
               >
                 <span className="material-symbols-outlined">check</span>
-                Save
+                {copy.common.save}
               </button>
               <button className="edit-color-action-button edit-color-action-secondary" onClick={cancelEditColor}>
                 <span className="material-symbols-outlined">close</span>
-                Cancel
+                {copy.common.cancel}
               </button>
             </div>
           </div>
@@ -2474,21 +2485,21 @@ function App() {
             <div className="edit-color-modal-header">
               <div>
                 <p className="card-heading" id="palette-export-title">
-                  Export palette
+                  {copy.contrast.exportPalette}
                 </p>
-                <p>Copy tokens for developers or export a swatch file for design tools.</p>
+                <p>{copy.export.paletteCopy}</p>
               </div>
               <button
                 className="edit-color-modal-close"
                 onClick={() => setShowPaletteExportModal(false)}
-                aria-label="Close palette export dialog"
+                aria-label={copy.export.closePaletteDialog}
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="palette-export-modal-body">
               <div className="scale-css-controls palette-export-controls-row">
-                <div className="scale-css-format-selector" aria-label="Export type">
+                <div className="scale-css-format-selector" aria-label={copy.export.exportType}>
                   {["css", "json"].map((type) => (
                     <button
                       key={`palette-type-modal-${type}`}
@@ -2501,7 +2512,7 @@ function App() {
                     </button>
                   ))}
                 </div>
-                <div className="scale-css-format-selector" aria-label="Color value format">
+                <div className="scale-css-format-selector" aria-label={copy.common.colorValueFormat}>
                   {["hex", "rgb", "hsl"].map((format) => (
                     <button
                       key={`palette-format-modal-${format}`}
@@ -2518,7 +2529,7 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     {copiedColor === "palette-ase" ? "check" : "download"}
                   </span>
-                  Download ASE
+                  {copy.common.downloadAse}
                 </button>
               </div>
               <div className="scale-code-window">
@@ -2526,7 +2537,7 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     {copiedColor === "palette-snippet" ? "check" : "content_copy"}
                   </span>
-                  Copy snippet
+                  {copy.common.copySnippet}
                 </button>
                 <pre className="scale-css-code">
                   <code>{paletteDeveloperSnippet}</code>
@@ -2571,11 +2582,11 @@ function App() {
                 d="M94.6,0h-52.53c-4.37,0-7.9,3.54-7.9,7.9v26.26h26.26c1.39,0,2.67.39,3.81,1.02.28.16.56.31.82.5,1.98,1.44,3.28,3.75,3.28,6.39v26.26h26.26c4.37,0,7.9-3.54,7.9-7.9V7.9c0-4.37-3.54-7.9-7.9-7.9Z"
               />
             </svg>
-            <p>Palette-first tools for generating color scales and checking WCAG contrast.</p>
+            <p>{copy.footer.body}</p>
           </div>
-          <div className="footer-links" aria-label="Footer links">
+          <div className="footer-links" aria-label={copy.nav.footerLinks}>
             <a className="github-button footer-github-button" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
-              <span className="sr-only">View on GitHub</span>
+              <span className="sr-only">{copy.nav.github}</span>
               <svg className="github-mark" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="currentColor"

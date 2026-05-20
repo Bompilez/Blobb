@@ -196,6 +196,37 @@ body.modal-open {
   gap: var(--space-lg);
 }
 
+.language-switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--border-radius-secondary);
+}
+
+.language-switcher-button {
+  min-width: 34px;
+  min-height: 30px;
+  border: none;
+  border-radius: calc(var(--border-radius-secondary) - 1px);
+  background-color: transparent;
+  color: var(--surface-color);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.language-switcher-button:hover,
+.language-switcher-button-active {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+.language-switcher-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
 .theme-toggle-button {
   display: inline-flex;
   width: 38px;
@@ -496,4 +527,3 @@ input {
     opacity var(--motion-medium) var(--motion-ease),
     transform var(--motion-medium) var(--motion-ease);
 }
-

@@ -124,7 +124,17 @@
   }
 
   .navigation-anchor-items {
+    gap: var(--space-sm);
     justify-content: flex-end;
+  }
+
+  .route-tabs-nav .route-tab {
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .language-switcher-button {
+    min-width: 30px;
   }
 
   .footer-links {

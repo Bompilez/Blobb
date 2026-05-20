@@ -1,12 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://blobb.net/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/" />
+  </url>
+  <url>
+    <loc>https://blobb.net/no/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/" />
   </url>
   <url>
     <loc>https://blobb.net/scale-generator</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/scale-generator" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/skalagenerator" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/scale-generator" />
   </url>
   <url>
-    <loc>https://blobb.net/Help&amp;FAQ</loc>
+    <loc>https://blobb.net/no/skalagenerator</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/scale-generator" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/skalagenerator" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/scale-generator" />
+  </url>
+  <url>
+    <loc>https://blobb.net/help</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/help" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/hjelp" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/help" />
+  </url>
+  <url>
+    <loc>https://blobb.net/no/hjelp</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://blobb.net/help" />
+    <xhtml:link rel="alternate" hreflang="nb" href="https://blobb.net/no/hjelp" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://blobb.net/help" />
   </url>
 </urlset>

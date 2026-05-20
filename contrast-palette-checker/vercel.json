@@ -1,3 +1,7 @@
 {
+  "redirects": [
+    { "source": "/Help&FAQ", "destination": "/help", "permanent": true },
+    { "source": "/faq", "destination": "/help", "permanent": true }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }
