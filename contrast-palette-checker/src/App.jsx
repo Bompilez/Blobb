@@ -1835,7 +1835,7 @@ function App() {
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
                             <span className="material-symbols-outlined">palette</span>
-                            <p>Add one colors to genereate scale.</p>
+                            <p>Add one color to genereate scale.</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
