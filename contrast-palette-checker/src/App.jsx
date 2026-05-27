@@ -27,7 +27,6 @@ function getStepStops(stepCount) {
     return [];
   }
 
-  // Always use 20% increments towards white/black to match the target palette behavior.
   const stops = [0.2, 0.4, 0.6, 0.8];
   return stops.slice(0, stepCount);
 }
@@ -37,13 +36,9 @@ function generateTints(hex, count) {
     return [];
   }
 
-  // With 20% increments we can generate at most:
-  // 4 darker + base + 4 lighter = 9 total.
   const safeCount = Math.max(2, Math.min(9, Number(count) || 5));
   const { r, g, b } = hexToRGB(hex);
 
-  // Generate a scale around the base color:
-  // darker steps (towards black) on the left, base in the middle, lighter steps (towards white) on the right.
   const leftSteps = Math.floor((safeCount - 1) / 2);
   const rightSteps = safeCount - 1 - leftSteps;
   const darkStops = getStepStops(leftSteps);
@@ -51,7 +46,6 @@ function generateTints(hex, count) {
 
   const items = [];
 
-  // Darkest first.
   for (let i = darkStops.length - 1; i >= 0; i--) {
     const t = darkStops[i];
     const shaded = rgbToHex({
