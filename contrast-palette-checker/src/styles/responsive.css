@@ -226,13 +226,6 @@
     min-height: 34px;
   }
 
-  .info-popover {
-    right: calc(var(--space-md) * -1);
-    max-height: min(420px, calc(100vh - 140px));
-    overflow: auto;
-    padding: var(--space-md);
-  }
-
   .palette-toolbar {
     align-items: stretch;
     flex-direction: column;

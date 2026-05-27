@@ -1,4 +1,4 @@
-﻿@media (hover: hover) {
+@media (hover: hover) {
   .tool-guide-card:hover,
   .faq-item:hover,
   .scale-swatch-tile:hover,
@@ -58,8 +58,7 @@
   margin-top: var(--space-md);
 }
 
-.info-icon-button,
-.info-popover-close {
+.info-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,13 +90,6 @@
   color: var(--purple);
 }
 
-.info-popover-close:hover {
-  border-color: var(--purple);
-  background-color: var(--light-purple);
-  color: var(--purple);
-  transform: translateY(-1px);
-}
-
 .info-icon-button .material-symbols-outlined {
   font-size: 1rem;
 }
@@ -111,61 +103,9 @@
   text-decoration: none;
 }
 
-.info-icon-button:focus-visible,
-.info-popover-close:focus-visible {
+.info-icon-button:focus-visible {
   outline: var(--outline-selected);
   outline-offset: 3px;
-}
-
-.info-popover {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + var(--space-sm));
-  right: 0;
-  width: min(360px, calc(100vw - 32px));
-  border: var(--border-width) solid rgba(94, 90, 163, 0.32);
-  border-radius: var(--border-radius);
-  background-color: var(--surface-color);
-  box-shadow: 0 18px 38px rgba(17, 24, 39, 0.18);
-  padding: var(--space-lg);
-  color: #1f2937;
-}
-
-.info-popover-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.info-popover-header .card-heading {
-  margin-bottom: var(--space-sm);
-  font-weight: var(--font-weight-bold);
-}
-
-.info-popover-close {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  border-radius: var(--border-radius-pill);
-}
-
-.info-popover-close .material-symbols-outlined {
-  font-size: 1rem;
-}
-
-.info-popover p {
-  margin: 0;
-  color: #374151;
-  line-height: 1.55;
-}
-
-.info-popover ul {
-  display: grid;
-  gap: var(--space-xs);
-  margin: var(--space-md) 0 0;
-  padding-left: 1.1rem;
-  color: #374151;
 }
 
 .intro-section p:last-child {
@@ -3608,7 +3548,6 @@
 :root[data-theme="dark"] .selected-color-edit-panel,
 :root[data-theme="dark"] .edit-color-modal,
 :root[data-theme="dark"] .panel-help-popover,
-:root[data-theme="dark"] .info-popover,
 :root[data-theme="dark"] .contrast-map-panel,
 :root[data-theme="dark"] .contrast-adjust-controls,
 :root[data-theme="dark"] .passing-candidate-swatch,
@@ -3638,8 +3577,6 @@
 :root[data-theme="dark"] .tool-guide-card p,
 :root[data-theme="dark"] .tool-guide-details ul,
 :root[data-theme="dark"] .panel-help-popover > span:not(.panel-help-popover-header),
-:root[data-theme="dark"] .info-popover p,
-:root[data-theme="dark"] .info-popover ul,
 :root[data-theme="dark"] .edit-color-modal-header p:last-child,
 :root[data-theme="dark"] .edit-color-modal-field,
 :root[data-theme="dark"] .contrast-adjust-slider,

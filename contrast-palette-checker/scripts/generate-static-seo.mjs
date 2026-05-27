@@ -52,6 +52,16 @@ function setTagContent(html, selector, content) {
   return html.replace(patterns[selector], replacements[selector]);
 }
 
+function injectRootContent(html, content) {
+  const rootElement = '<div id="root"></div>';
+
+  if (!html.includes(rootElement)) {
+    throw new Error("Unable to inject static SEO content: root element not found in dist/index.html");
+  }
+
+  return html.replace(rootElement, `<div id="root">${content}</div>`);
+}
+
 function getContrastStatus(contrast) {
   if (contrast >= 7) {
     return "passes WCAG AAA for normal text";
@@ -108,7 +118,7 @@ function buildContrastPage(template, contrastPair) {
   html = setTagContent(html, "twitterTitle", meta.title);
   html = setTagContent(html, "twitterDescription", meta.description);
 
-  return html.replace('<div id="root"></div>', `<div id="root">${staticSummary}</div>`);
+  return injectRootContent(html, staticSummary);
 }
 
 function buildSitemap() {
@@ -132,7 +142,7 @@ async function main() {
     [
       ...SEO_CONTRAST_PAIRS.map(async ([backgroundColor, textColor]) => {
         const routePath = buildContrastPairPath(backgroundColor, textColor);
-        const outputDir = path.join(distDir, routePath);
+        const outputDir = path.join(distDir, routePath.replace(/^\//, ""));
         const html = buildContrastPage(template, { backgroundColor, textColor });
 
         await mkdir(outputDir, { recursive: true });

@@ -225,7 +225,6 @@ function expandShortHex(hex) {
 }
 
 export const SEO_CONTRAST_PAIRS = createSeoContrastPairs(500);
-export const FEATURED_CONTRAST_PAIRS = SEO_CONTRAST_PAIRS.slice(0, 32);
 
 export function buildContrastPairPath(backgroundColor, textColor) {
   const background = backgroundColor.replace(/^#/, "").toLowerCase();
