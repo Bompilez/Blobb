@@ -283,6 +283,12 @@ body.modal-open {
   color: var(--purple);
 }
 
+.route-tabs-nav .route-tab-active:hover {
+  background-color: var(--surface-color);
+  color: var(--purple);
+  transform: none;
+}
+
 .tool-switcher-shell {
   position: sticky;
   z-index: 9999999;

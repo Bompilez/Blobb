@@ -1,3 +1,45 @@
+const NAMED_COLOR_HEX = {
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ff0000",
+  lime: "#00ff00",
+  blue: "#0000ff",
+  yellow: "#ffff00",
+  cyan: "#00ffff",
+  aqua: "#00ffff",
+  magenta: "#ff00ff",
+  fuchsia: "#ff00ff",
+  silver: "#c0c0c0",
+  gray: "#808080",
+  grey: "#808080",
+  maroon: "#800000",
+  olive: "#808000",
+  green: "#008000",
+  purple: "#800080",
+  teal: "#008080",
+  navy: "#000080",
+  orange: "#ffa500",
+  pink: "#ffc0cb",
+  brown: "#a52a2a",
+  gold: "#ffd700",
+  coral: "#ff7f50",
+  tomato: "#ff6347",
+  salmon: "#fa8072",
+  crimson: "#dc143c",
+  violet: "#ee82ee",
+  indigo: "#4b0082",
+  lavender: "#e6e6fa",
+  plum: "#dda0dd",
+  turquoise: "#40e0d0",
+  beige: "#f5f5dc",
+  ivory: "#fffff0",
+  khaki: "#f0e68c",
+  tan: "#d2b48c",
+  chocolate: "#d2691e",
+  transparent: "#ffffff",
+  rebeccapurple: "#663399",
+};
+
 export function isValidHex(input) {
   const hex = input.startsWith("#") ? input.slice(1) : input;
 
@@ -19,7 +61,102 @@ export function isValidHex(input) {
 
 export function normalizeHex(input) {
   const cleanedInput = input.trim().toLowerCase();
+  const parsedColor = parseColorToHex(cleanedInput);
+
+  if (parsedColor) {
+    return parsedColor;
+  }
+
   return cleanedInput.startsWith("#") ? cleanedInput : `#${cleanedInput}`;
+}
+
+function clampChannel(value) {
+  return Math.round(Math.min(Math.max(Number(value), 0), 255));
+}
+
+function clampPercent(value) {
+  return Math.min(Math.max(Number(value), 0), 100);
+}
+
+function parseHue(value) {
+  const raw = value.trim().toLowerCase();
+  const parsed = Number.parseFloat(raw);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  if (raw.endsWith("turn")) {
+    return ((parsed * 360) % 360 + 360) % 360;
+  }
+
+  if (raw.endsWith("rad")) {
+    return (((parsed * 180) / Math.PI) % 360 + 360) % 360;
+  }
+
+  return (parsed % 360 + 360) % 360;
+}
+
+function parseRgbChannel(value) {
+  const raw = value.trim();
+
+  if (raw.endsWith("%")) {
+    const percent = clampPercent(Number.parseFloat(raw));
+    return clampChannel((percent / 100) * 255);
+  }
+
+  return clampChannel(Number.parseFloat(raw));
+}
+
+export function parseColorToHex(input) {
+  if (typeof input !== "string") {
+    return null;
+  }
+
+  const cleanedInput = input.trim().toLowerCase();
+
+  if (!cleanedInput) {
+    return null;
+  }
+
+  if (isValidHex(cleanedInput)) {
+    const hex = cleanedInput.startsWith("#") ? cleanedInput : `#${cleanedInput}`;
+
+    if (hex.length === 4) {
+      return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+    }
+
+    return hex;
+  }
+
+  if (NAMED_COLOR_HEX[cleanedInput]) {
+    return NAMED_COLOR_HEX[cleanedInput];
+  }
+
+  const rgbMatch = cleanedInput.match(/^rgba?\((.+)\)$/);
+  if (rgbMatch) {
+    const channels = rgbMatch[1].replace(/\s*\/\s*[^, ]+$/, "").split(/[,\s]+/).filter(Boolean);
+
+    if (channels.length >= 3) {
+      return rgbToHex({
+        r: parseRgbChannel(channels[0]),
+        g: parseRgbChannel(channels[1]),
+        b: parseRgbChannel(channels[2]),
+      });
+    }
+  }
+
+  const hslMatch = cleanedInput.match(/^hsla?\((.+)\)$/);
+  if (hslMatch) {
+    const channels = hslMatch[1].replace(/\s*\/\s*[^, ]+$/, "").split(/[,\s]+/).filter(Boolean);
+    const hue = channels.length >= 3 ? parseHue(channels[0]) : null;
+
+    if (hue !== null) {
+      return hslToHex(hue, clampPercent(Number.parseFloat(channels[1])), clampPercent(Number.parseFloat(channels[2])));
+    }
+  }
+
+  return null;
 }
 
 export function hexToRGB(color) {

@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
-import { getRouteFromPath, PAGE_META, setMetaContent } from "./lib/routeMeta";
+import { buildContrastPairPath, getMetaForRoute, getRouteStateFromPath, setMetaContent } from "./lib/routeMeta";
 import FaqPage from "./pages/FaqPage";
 import "./styles/index.css";
 
@@ -357,18 +358,56 @@ function loadThemePreference() {
   return "light";
 }
 
+function getColorsFromRoutePair(routePair) {
+  if (!routePair) {
+    return [];
+  }
+
+  return [routePair.backgroundColor, routePair.textColor];
+}
+
+function mergeRoutePairIntoPalette(palette, routePair) {
+  if (!routePair) {
+    return palette;
+  }
+
+  const routeColors = getColorsFromRoutePair(routePair);
+  const existingColors = palette?.colors ?? [];
+  const existingNames = palette?.colorNames ?? [];
+  const nextColors = [...existingColors];
+  const nextNames = [...existingNames];
+
+  routeColors.forEach((color) => {
+    if (!nextColors.includes(color) && nextColors.length < 10) {
+      nextColors.push(color);
+      nextNames.push("");
+    }
+  });
+
+  return { colors: nextColors, colorNames: nextNames.slice(0, nextColors.length) };
+}
+
 // ===== APP =====
 function App() {
+  const initialRouteState = getRouteStateFromPath();
   const initialPalette = loadPaletteFromStorage();
-  const [route, setRoute] = useState(getRouteFromPath);
+  const initialHasStoredPalette = (initialPalette?.colors?.length ?? 0) > 0;
+  const initialPaletteWithRoute = initialHasStoredPalette ? initialPalette : mergeRoutePairIntoPalette(initialPalette, initialRouteState.contrastPair);
+  const [route, setRoute] = useState(initialRouteState.route);
+  const [routeContrastPair, setRouteContrastPair] = useState(initialRouteState.contrastPair);
+  const [hasStoredPalette] = useState(initialHasStoredPalette);
   const [theme, setTheme] = useState(loadThemePreference);
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
-  const [colors, setColors] = useState(() => initialPalette?.colors ?? DEFAULT_COLORS);
-  const [colorNames, setColorNames] = useState(() => initialPalette?.colorNames ?? DEFAULT_COLOR_NAMES);
+  const [colors, setColors] = useState(() => initialPaletteWithRoute?.colors ?? DEFAULT_COLORS);
+  const [colorNames, setColorNames] = useState(() => initialPaletteWithRoute?.colorNames ?? DEFAULT_COLOR_NAMES);
   const [selectedColors, setSelectedColors] = useState(() => {
-    const loaded = initialPalette?.colors ?? DEFAULT_COLORS;
+    if (initialRouteState.contrastPair) {
+      return getColorsFromRoutePair(initialRouteState.contrastPair);
+    }
+
+    const loaded = initialPaletteWithRoute?.colors ?? DEFAULT_COLORS;
     return loaded.length >= 2 ? [loaded[0], loaded[1]] : loaded.length === 1 ? [loaded[0]] : [];
   });
   const [activeSelectedIndex, setActiveSelectedIndex] = useState(0);
@@ -393,6 +432,7 @@ function App() {
   const [adjustingDraftColor, setAdjustingDraftColor] = useState("");
   const [showAdjustInfo, setShowAdjustInfo] = useState(false);
   const [activePanelHelp, setActivePanelHelp] = useState("");
+  const [dismissedContrastSummaryPath, setDismissedContrastSummaryPath] = useState("");
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
 
@@ -407,6 +447,10 @@ function App() {
   const canSaveEditColor = isValidHex(cleanedEditColorInput);
   const canComparePalette = colors.length >= 2;
   const isPaletteEmpty = colors.length === 0;
+  const routePairColors = getColorsFromRoutePair(routeContrastPair);
+  const missingRoutePairColors = routePairColors.filter((color) => !colors.includes(color));
+  const shouldOfferAddRouteColorsToPalette = hasStoredPalette && routeContrastPair && missingRoutePairColors.length > 0;
+  const canAddRouteColorsToPalette = colors.length + missingRoutePairColors.length <= 10;
   const scaleBaseColor = typeof activePaletteColor === "string" ? activePaletteColor : "";
   const canGenerateScale = isValidHex(scaleBaseColor);
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
@@ -443,6 +487,47 @@ function App() {
       )
     : null;
 
+  function applyContrastPairRoute(contrastPair) {
+    const routeColors = getColorsFromRoutePair(contrastPair);
+
+    setRoute("contrast");
+    setRouteContrastPair(contrastPair);
+    setCompareMode("manual");
+    setActiveSelectedIndex(1);
+    setSelectedColors(routeColors);
+
+    if (hasStoredPalette) {
+      return;
+    }
+
+    setColors((currentColors) => {
+      const nextColors = [...currentColors];
+      let addedCount = 0;
+
+      routeColors.forEach((color) => {
+        if (!nextColors.includes(color) && nextColors.length < 10) {
+          nextColors.push(color);
+          addedCount += 1;
+        }
+      });
+
+      if (addedCount > 0) {
+        setColorNames((currentNames) => [...currentNames, ...Array(addedCount).fill("")]);
+      }
+
+      return nextColors;
+    });
+  }
+
+  function addRouteColorsToPalette() {
+    if (!routeContrastPair || missingRoutePairColors.length === 0 || !canAddRouteColorsToPalette) {
+      return;
+    }
+
+    setColors((currentColors) => [...currentColors, ...missingRoutePairColors]);
+    setColorNames((currentNames) => [...currentNames, ...Array(missingRoutePairColors.length).fill("")]);
+  }
+
   useEffect(() => {
     savePaletteToStorage(colors, colorNames);
   }, [colors, colorNames]);
@@ -476,7 +561,15 @@ function App() {
 
   useEffect(() => {
     function syncRoute() {
-      setRoute(getRouteFromPath());
+      const nextRouteState = getRouteStateFromPath();
+
+      if (nextRouteState.contrastPair) {
+        applyContrastPairRoute(nextRouteState.contrastPair);
+        return;
+      }
+
+      setRoute(nextRouteState.route);
+      setRouteContrastPair(null);
     }
 
     window.addEventListener("popstate", syncRoute);
@@ -484,10 +577,16 @@ function App() {
     return () => {
       window.removeEventListener("popstate", syncRoute);
     };
+    // Route syncing only needs the current browser URL when popstate fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const meta = PAGE_META[route] ?? PAGE_META.contrast;
+    const selectedPair =
+      route === "contrast" && selectedColors.length === 2 && selectedColors.every(isValidHex)
+        ? { backgroundColor: selectedColors[0], textColor: selectedColors[1] }
+        : routeContrastPair;
+    const meta = getMetaForRoute(route, selectedPair);
     const canonical = document.querySelector('link[rel="canonical"]');
 
     document.title = meta.title;
@@ -501,9 +600,19 @@ function App() {
     if (canonical) {
       canonical.setAttribute("href", meta.canonical);
     }
-  }, [route]);
+  }, [route, routeContrastPair, selectedColors]);
 
   useEffect(() => {
+    if (
+      routeContrastPair &&
+      selectedColors.length === 2 &&
+      selectedColors[0] === routeContrastPair.backgroundColor &&
+      selectedColors[1] === routeContrastPair.textColor
+    ) {
+      setActiveSelectedIndex(1);
+      return;
+    }
+
     if (colors.length === 0) {
       if (selectedColors.length > 0) {
         setSelectedColors([]);
@@ -542,7 +651,7 @@ function App() {
         setActiveSelectedIndex(1);
       }
     }
-  }, [activeSelectedIndex, colors, compareMode, route, selectedColors]);
+  }, [activeSelectedIndex, colors, compareMode, route, routeContrastPair, selectedColors]);
 
   useEffect(() => {
     return () => {
@@ -563,7 +672,7 @@ function App() {
     };
   }, [editingColorIndex, adjustingSelectedIndex]);
 
-  if (canComparePalette && selectedColors.length === 2 && selectedColors.every(isValidHex)) {
+  if (selectedColors.length === 2 && selectedColors.every(isValidHex)) {
     const contrast = getContrast(selectedColors[0], selectedColors[1]);
     const contrastProgress = Math.min((contrast / 7) * 100, 100);
 
@@ -591,6 +700,19 @@ function App() {
       passesGraphicsUI,
     };
   }
+
+  const routeContrastPairPath = routeContrastPair ? buildContrastPairPath(routeContrastPair.backgroundColor, routeContrastPair.textColor) : "";
+  const shouldShowContrastSeoSummary =
+    selectedContrast &&
+    routeContrastPair &&
+    routeContrastPair.backgroundColor === selectedContrast.colorA &&
+    routeContrastPair.textColor === selectedContrast.colorB &&
+    dismissedContrastSummaryPath !== routeContrastPairPath;
+  const contrastSeoSummaryClass = selectedContrast?.passesSmallAA
+    ? "contrast-seo-summary-pass"
+    : selectedContrast?.passesLargeAA || selectedContrast?.passesGraphicsUI
+      ? "contrast-seo-summary-warn"
+      : "contrast-seo-summary-fail";
 
   function generateContrastStatus(contrast) {
     let contrastStatus;
@@ -973,7 +1095,7 @@ function App() {
   }
 
   function changeRoute(nextRoute, hash = "") {
-    const nextMeta = PAGE_META[nextRoute] ?? PAGE_META.contrast;
+    const nextMeta = getMetaForRoute(nextRoute);
     const nextPath = `${nextMeta.path}${hash}`;
 
     if (`${window.location.pathname}${window.location.hash}` !== nextPath) {
@@ -981,6 +1103,7 @@ function App() {
     }
 
     setRoute(nextRoute);
+    setRouteContrastPair(null);
 
     if (hash) {
       window.setTimeout(() => {
@@ -1222,6 +1345,47 @@ function App() {
                     </div>
                   </div>
                 </header>
+                {shouldShowContrastSeoSummary && (
+                  <section className={`contrast-seo-summary ${contrastSeoSummaryClass}`} aria-labelledby="contrast-pair-question">
+                    <div>
+                      <p className="intro-eyebrow">Color contrast answer</p>
+                      <h2 id="contrast-pair-question">
+                        Does {selectedContrast.colorB} work on {selectedContrast.colorA}?
+                      </h2>
+                      <p>
+                        {selectedContrast.colorB} on {selectedContrast.colorA} has a contrast ratio of{" "}
+                        <strong>{selectedContrast.contrast.toFixed(2)}:1</strong>. It{" "}
+                        <strong>{selectedContrast.passesSmallAA ? "passes" : "does not pass"}</strong> WCAG AA for normal text and{" "}
+                        <strong>{selectedContrast.passesLargeAA ? "passes" : "does not pass"}</strong> WCAG AA for large text and UI graphics.
+                      </p>
+                    </div>
+                    <div className="contrast-summary-actions">
+                      <button
+                        type="button"
+                        className="contrast-summary-dismiss"
+                        onClick={() => setDismissedContrastSummaryPath(routeContrastPairPath)}
+                        aria-label="Hide color contrast answer"
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">
+                          close
+                        </span>
+                      </button>
+                      {shouldOfferAddRouteColorsToPalette && (
+                        <button
+                          type="button"
+                          className="contrast-add-pair-button"
+                          onClick={addRouteColorsToPalette}
+                          disabled={!canAddRouteColorsToPalette}
+                        >
+                          <span className="material-symbols-outlined" aria-hidden="true">
+                            add
+                          </span>
+                          {canAddRouteColorsToPalette ? "Add these colors to palette" : "Palette is full"}
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
                 <div className={`top-grid ${compareMode === "palette" ? "top-grid-palette" : ""}`}>
                   <div className="color-palette-section">
                     <div className="color-palette-container">

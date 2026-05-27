@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const TOOL_GUIDES = [
   {
     id: "your-palette",
@@ -20,8 +22,8 @@ const TOOL_GUIDES = [
     visual: "selected",
   },
   {
-    id: "inspect-color",
-    title: "Inspect color map",
+    id: "tune-color-map",
+    title: "Tune color map",
     summary: "The Tune with contrast map window helps you adjust one selected color while checking it against the opposite text or background color.",
     why: "Small HSL changes can turn a failing pair into a passing pair. The map makes those safe areas visible so you can adjust with intent instead of nudging values blindly.",
     steps: [
@@ -140,7 +142,7 @@ const GUIDE_GROUPS = [
   },
   {
     title: "Contrast checking",
-    links: ["manual-compare", "palette-compare", "inspect-color"],
+    links: ["manual-compare", "palette-compare", "tune-color-map"],
   },
   {
     title: "Scales and exports",
@@ -166,7 +168,7 @@ const INDEX_ORDER = [
   "selected-colors",
   "manual-compare",
   "palette-compare",
-  "inspect-color",
+  "tune-color-map",
   "scale-generator",
   "export-scale",
   "export-palette",
@@ -276,6 +278,12 @@ function scrollToSection(sectionId) {
 }
 
 function FaqPage() {
+  const [openPanelId, setOpenPanelId] = useState("");
+
+  function togglePanel(panelId) {
+    setOpenPanelId((currentPanelId) => (currentPanelId === panelId ? "" : panelId));
+  }
+
   return (
     <div className="faq-page">
       <header className="intro-section faq-intro-section">
@@ -333,12 +341,23 @@ function FaqPage() {
             <p>Short answers about Blobb, WCAG, and contrast ratios.</p>
           </div>
           <div className="faq-list">
-            {FAQ_ITEMS.map((item) => (
-              <details className="faq-item" key={item.question}>
-                <summary>{item.question}</summary>
-                <p>{item.answer}</p>
-              </details>
-            ))}
+            {FAQ_ITEMS.map((item) => {
+              const panelId = `faq-${item.question}`;
+
+              return (
+                <details className="faq-item" key={item.question} open={openPanelId === panelId}>
+                  <summary
+                    onClick={(event) => {
+                      event.preventDefault();
+                      togglePanel(panelId);
+                    }}
+                  >
+                    {item.question}
+                  </summary>
+                  <p>{item.answer}</p>
+                </details>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -364,8 +383,15 @@ function FaqPage() {
                         {guide.title}
                       </h3>
                       <p>{guide.summary}</p>
-                      <details className="tool-guide-details">
-                        <summary>Why and how to use it</summary>
+                      <details className="tool-guide-details" open={openPanelId === `guide-${guide.id}`}>
+                        <summary
+                          onClick={(event) => {
+                            event.preventDefault();
+                            togglePanel(`guide-${guide.id}`);
+                          }}
+                        >
+                          Why and how to use it
+                        </summary>
                         <p>{guide.why}</p>
                         <ul>
                           {guide.steps.map((step) => (
