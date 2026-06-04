@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
+import { track } from "@vercel/analytics";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
 import { buildContrastPairPath, getMetaForRoute, getRouteStateFromPath, setMetaContent } from "./lib/routeMeta";
 import FaqPage from "./pages/FaqPage";
@@ -429,6 +430,8 @@ function App() {
   const [dismissedContrastSummaryPath, setDismissedContrastSummaryPath] = useState("");
   const colorClickTimeoutRef = useRef(null);
   const copiedColorTimeoutRef = useRef(null);
+  const trackedContrastPairsRef = useRef(new Set());
+  const trackedScaleColorsRef = useRef(new Set());
 
   let selectedContrast = null;
   const activePaletteColor = selectedColors[0];
@@ -518,6 +521,11 @@ function App() {
       return;
     }
 
+    const nextPaletteSize = colors.length + missingRoutePairColors.length;
+    if (colors.length < 2 && nextPaletteSize >= 2) {
+      track("Palette Created", { paletteSize: nextPaletteSize, source: "contrast-route" });
+    }
+
     setColors((currentColors) => [...currentColors, ...missingRoutePairColors]);
     setColorNames((currentNames) => [...currentNames, ...Array(missingRoutePairColors.length).fill("")]);
   }
@@ -525,6 +533,34 @@ function App() {
   useEffect(() => {
     savePaletteToStorage(colors, colorNames);
   }, [colors, colorNames]);
+
+  useEffect(() => {
+    if (route !== "contrast" || selectedColors.length !== 2 || !selectedColors.every(isValidHex)) {
+      return;
+    }
+
+    const pairKey = selectedColors.join(":");
+    if (trackedContrastPairsRef.current.has(pairKey)) {
+      return;
+    }
+
+    trackedContrastPairsRef.current.add(pairKey);
+    const contrast = getContrast(selectedColors[0], selectedColors[1]);
+    track("Contrast Checked", {
+      mode: compareMode,
+      paletteSize: colors.length,
+      passesAA: contrast >= 4.5,
+    });
+  }, [colors.length, compareMode, route, selectedColors]);
+
+  useEffect(() => {
+    if (route !== "scale" || !canGenerateScale || trackedScaleColorsRef.current.has(scaleBaseColor)) {
+      return;
+    }
+
+    trackedScaleColorsRef.current.add(scaleBaseColor);
+    track("Scale Generated", { paletteSize: colors.length, steps: scaleColors.length });
+  }, [canGenerateScale, colors.length, route, scaleBaseColor, scaleColors.length]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -832,6 +868,10 @@ function App() {
     }
 
     const nextColors = [...colors, input];
+
+    if (colors.length < 2 && nextColors.length >= 2) {
+      track("Palette Created", { paletteSize: nextColors.length, source: "manual" });
+    }
 
     setColors(nextColors);
     setColorNames([...colorNames, colorNameInput.trim()]);
