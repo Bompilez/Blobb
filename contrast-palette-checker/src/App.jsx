@@ -612,11 +612,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const selectedPair =
-      route === "contrast" && selectedColors.length === 2 && selectedColors.every(isValidHex)
-        ? { backgroundColor: selectedColors[0], textColor: selectedColors[1] }
-        : routeContrastPair;
-    const meta = getMetaForRoute(route, selectedPair);
+    const meta = getMetaForRoute(route, routeContrastPair);
     const canonical = document.querySelector('link[rel="canonical"]');
 
     document.title = meta.title;
@@ -630,7 +626,7 @@ function App() {
     if (canonical) {
       canonical.setAttribute("href", meta.canonical);
     }
-  }, [route, routeContrastPair, selectedColors]);
+  }, [route, routeContrastPair]);
 
   useEffect(() => {
     if (
