@@ -32,6 +32,28 @@ function getStepStops(stepCount) {
   return stops.slice(0, stepCount);
 }
 
+function generateEndpointScale(hex, safeCount, endpoint) {
+  return Array.from({ length: safeCount }, (_, index) => {
+    const position = safeCount === 1 ? 0 : index / (safeCount - 1);
+    const channel = Math.round(position * 255);
+    const stepHex = rgbToHex({ r: channel, g: channel, b: channel });
+
+    if (endpoint === "black") {
+      return {
+        label: index === 0 ? "Base" : `+${Math.round(position * 100)}%`,
+        t: position,
+        hex: stepHex,
+      };
+    }
+
+    return {
+      label: index === safeCount - 1 ? "Base" : `-${Math.round((1 - position) * 100)}%`,
+      t: position - 1,
+      hex: stepHex,
+    };
+  });
+}
+
 function generateTints(hex, count) {
   if (!isValidHex(hex)) {
     return [];
@@ -39,6 +61,14 @@ function generateTints(hex, count) {
 
   const safeCount = Math.max(2, Math.min(9, Number(count) || 5));
   const { r, g, b } = hexToRGB(hex);
+
+  if (r === 0 && g === 0 && b === 0) {
+    return generateEndpointScale(hex, safeCount, "black");
+  }
+
+  if (r === 255 && g === 255 && b === 255) {
+    return generateEndpointScale(hex, safeCount, "white");
+  }
 
   const leftSteps = Math.floor((safeCount - 1) / 2);
   const rightSteps = safeCount - 1 - leftSteps;
@@ -2579,6 +2609,7 @@ function App() {
                       }),
                     )
                       .filter(({ contrast }) => contrast >= 4.5)
+                      .filter(({ candidate }, index, candidates) => candidates.findIndex((item) => item.candidate === candidate) === index)
                       .sort((a, b) => Math.abs(getContrast(adjustingColor, a.candidate) - 1) - Math.abs(getContrast(adjustingColor, b.candidate) - 1))
                       .slice(0, 12)
                       .map(({ candidate, contrast }) => (

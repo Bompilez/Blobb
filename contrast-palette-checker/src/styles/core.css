@@ -451,7 +451,8 @@
 }
 
 .scale-swatch-tile:hover {
-  transform: translateY(-1px);
+  border-color: var(--purple);
+  transform: translateY(-3px);
 }
 
 .scale-panel-switch {
@@ -1198,7 +1199,7 @@
 
 .color-name-input:focus {
   outline: var(--outline-selected);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .hex-input-shell {
@@ -1213,7 +1214,7 @@
 
 .hex-input-shell:focus-within {
   outline: var(--outline-selected);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .hex-input-shell span {
@@ -1247,7 +1248,7 @@
 
 .add-color-control > input:focus {
   outline: var(--outline-selected);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .add-color-button,
@@ -1538,7 +1539,7 @@
 
 .selected-color-input-shell input:focus {
   outline: var(--outline-selected);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .selected-color-edit-panel label {
@@ -1695,8 +1696,8 @@
 }
 
 .palette-swatch-card:hover {
+  border-color: var(--purple);
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
 }
 
 .palette-swatch-card-selected {
@@ -1886,7 +1887,7 @@
 .edit-color-name-input:focus,
 .edit-color-input:focus {
   outline: var(--outline-selected);
-  outline-offset: 2px;
+  outline-offset: 0;
 }
 
 .edit-color-actions {
@@ -3520,8 +3521,17 @@
   background-color: var(--surface-color);
 }
 
+:root[data-theme="dark"] .tool-switcher {
+  background-color: rgba(216, 215, 238, 0.12);
+}
+
 :root[data-theme="dark"] .tool-switcher .route-tab {
   color: var(--muted-text-color);
+}
+
+:root[data-theme="dark"] .tool-switcher .route-tab:hover {
+  background-color: rgba(244, 243, 251, 0.08);
+  color: var(--text-color);
 }
 
 :root[data-theme="dark"] .tool-switcher .route-tab-active,

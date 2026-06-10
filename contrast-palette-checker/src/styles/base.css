@@ -305,25 +305,28 @@ body.modal-open {
 }
 
 .tool-switcher {
-  background-color: var(--surface-color);
-  border: var(--border-default);
+  gap: var(--space-sm);
+  border: none;
   border-radius: var(--border-radius-secondary);
+  background-color: rgba(94, 90, 163, 0.12);
 }
 
 .tool-switcher .route-tab {
   border-radius: var(--border-radius-secondary);
   color: #374151;
+  padding: 0 var(--space-md);
+  font-size: 1rem;
 }
 
 .tool-switcher .route-tab:hover {
-  background-color: var(--light-purple);
+  background-color: rgba(255, 255, 255, 0.7);
   color: var(--purple);
-  transform: translateY(-1px);
 }
 
 .tool-switcher .route-tab-active {
-  background-color: var(--purple);
-  color: var(--surface-color);
+  background-color: var(--surface-color);
+  color: var(--purple);
+  box-shadow: 0 0 0 1px rgba(94, 90, 163, 0.28);
 }
 
 .card-heading {
