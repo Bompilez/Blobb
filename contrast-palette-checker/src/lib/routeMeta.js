@@ -21,7 +21,32 @@ export const PAGE_META = {
   },
 };
 
-const HEX_PAIR_PATTERN = /^\/contrast\/([0-9a-fA-F]{3}|[0-9a-fA-F]{6})-vs-([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\/?$/;
+export const PAGE_META_BY_LANGUAGE = {
+  en: PAGE_META,
+  no: {
+    contrast: {
+      title: "WCAG kontrastverktøy",
+      description:
+        "Sjekk fargekontrast i paletten din. Sammenlign tekst og bakgrunn, test palettkombinasjoner og forhåndsvis lesbare UI-resultater mot WCAG-krav.",
+      canonical: "https://blobb.net/no",
+      path: "/no",
+    },
+    scale: {
+      title: "Generer fargeskala | UI-palettverktøy",
+      description: "Generer lyse og mørke skalasteg fra én basefarge, sammenlign kontrastpar og eksporter skalaen som tokens.",
+      canonical: "https://blobb.net/no/scale-generator",
+      path: "/no/scale-generator",
+    },
+    helpFaq: {
+      title: "Hjelp og FAQ | Blobb fargeverktøy",
+      description: "Guider for paletter, kontrastsjekk, skalaer og eksport, pluss korte svar på vanlige spørsmål om WCAG-kontrast.",
+      canonical: "https://blobb.net/no/Help&FAQ",
+      path: "/no/Help&FAQ",
+    },
+  },
+};
+
+const HEX_PAIR_PATTERN = /^\/(?:no\/)?contrast\/([0-9a-fA-F]{3}|[0-9a-fA-F]{6})-vs-([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\/?$/;
 
 const CORE_CONTRAST_PAIRS = [
   ["#000000", "#ffffff"],
@@ -226,11 +251,24 @@ function expandShortHex(hex) {
 
 export const SEO_CONTRAST_PAIRS = createSeoContrastPairs(500);
 
-export function buildContrastPairPath(backgroundColor, textColor) {
+export function buildContrastPairPath(backgroundColor, textColor, language = "en") {
   const background = backgroundColor.replace(/^#/, "").toLowerCase();
   const text = textColor.replace(/^#/, "").toLowerCase();
+  const prefix = language === "no" ? "/no" : "";
 
-  return `/contrast/${background}-vs-${text}`;
+  return `${prefix}/contrast/${background}-vs-${text}`;
+}
+
+function getLanguageFromPath(pathname) {
+  return pathname === "/no" || pathname.startsWith("/no/") ? "no" : "en";
+}
+
+function getUnprefixedPath(pathname) {
+  if (pathname === "/no") {
+    return "/";
+  }
+
+  return pathname.startsWith("/no/") ? pathname.slice(3) : pathname;
 }
 
 export function parseContrastPairFromPath(pathname) {
@@ -246,20 +284,44 @@ export function parseContrastPairFromPath(pathname) {
   };
 }
 
-export function getMetaForRoute(route, contrastPair = null) {
+export function getMetaForRoute(route, contrastPair = null, language = "en") {
+  const metaByRoute = PAGE_META_BY_LANGUAGE[language] ?? PAGE_META_BY_LANGUAGE.en;
+
   if (route === "contrast" && contrastPair) {
     const { backgroundColor, textColor } = contrastPair;
-    const path = buildContrastPairPath(backgroundColor, textColor);
+    const path = buildContrastPairPath(backgroundColor, textColor, language);
+    const title =
+      language === "no"
+        ? `Fungerer ${textColor} på ${backgroundColor}? Kontrastsjekk`
+        : `Does ${textColor} Work on ${backgroundColor}? Color Contrast Checker`;
+    const description =
+      language === "no"
+        ? `Sjekk om ${textColor} tekst fungerer på ${backgroundColor} bakgrunn. Se WCAG-kontrastforhold, AA- og AAA-resultater og UI-forhåndsvisning.`
+        : `Check whether ${textColor} text works on a ${backgroundColor} background. See the WCAG contrast ratio, AA and AAA pass/fail results, and a live UI preview.`;
 
     return {
-      title: `Does ${textColor} Work on ${backgroundColor}? Color Contrast Checker`,
-      description: `Check whether ${textColor} text works on a ${backgroundColor} background. See the WCAG contrast ratio, AA and AAA pass/fail results, and a live UI preview.`,
+      title,
+      description,
       canonical: `https://blobb.net${path}`,
       path,
+      alternates: {
+        en: `https://blobb.net${buildContrastPairPath(backgroundColor, textColor, "en")}`,
+        no: `https://blobb.net${buildContrastPairPath(backgroundColor, textColor, "no")}`,
+      },
     };
   }
 
-  return PAGE_META[route] ?? PAGE_META.contrast;
+  const meta = metaByRoute[route] ?? metaByRoute.contrast;
+  const enMeta = PAGE_META_BY_LANGUAGE.en[route] ?? PAGE_META_BY_LANGUAGE.en.contrast;
+  const noMeta = PAGE_META_BY_LANGUAGE.no[route] ?? PAGE_META_BY_LANGUAGE.no.contrast;
+
+  return {
+    ...meta,
+    alternates: {
+      en: enMeta.canonical,
+      no: noMeta.canonical,
+    },
+  };
 }
 
 export function getRouteFromPath() {
@@ -267,15 +329,17 @@ export function getRouteFromPath() {
     return "contrast";
   }
 
+  const pathname = getUnprefixedPath(window.location.pathname);
+
   if (parseContrastPairFromPath(window.location.pathname)) {
     return "contrast";
   }
 
-  if (window.location.pathname === PAGE_META.scale.path) {
+  if (pathname === PAGE_META.scale.path) {
     return "scale";
   }
 
-  if (window.location.pathname === PAGE_META.helpFaq.path || window.location.pathname === "/faq") {
+  if (pathname === PAGE_META.helpFaq.path || pathname === "/faq") {
     return "helpFaq";
   }
 
@@ -290,6 +354,7 @@ export function getRouteStateFromPath() {
   return {
     route: getRouteFromPath(),
     contrastPair: parseContrastPairFromPath(window.location.pathname),
+    language: getLanguageFromPath(window.location.pathname),
   };
 }
 

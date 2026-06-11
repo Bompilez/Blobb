@@ -3409,45 +3409,81 @@
 .footer-links {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: var(--space-sm);
+  gap: var(--space-lg);
 }
 
-.footer-links a {
-  display: inline-flex;
+.language-segmented-control {
+  display: inline-grid;
   min-height: 38px;
-  align-items: center;
-  border: var(--border-default);
-  padding: 0 var(--space-md);
+  grid-template-columns: repeat(2, minmax(42px, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--border-radius-secondary);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.language-segment {
+  border: none;
+  background-color: transparent;
   color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.language-segment:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.language-segment-active {
+  background-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.language-segment-active:hover {
+  background-color: rgba(255, 255, 255, 0.24);
+}
+
+.language-segment:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: -2px;
+}
+
+.footer-github-link {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-xs);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.88rem;
   font-weight: var(--font-weight-bold);
   text-decoration: none;
 }
 
-.footer-links .github-mark {
-  width: 20px;
-  height: 20px;
-  display: block;
+.footer-github-link:hover {
+  color: #ffffff;
+  text-decoration: none;
 }
 
-.footer-links a:hover {
-  background-color: rgba(255, 255, 255, 0.12);
+.footer-github-link:hover span:first-child {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.footer-links .footer-github-button {
-  width: 40px;
-  height: 40px;
-  justify-content: center;
-  padding: 0;
-  border-radius: var(--border-radius-secondary);
-  border-color: transparent;
-  background-color: #deddf5;
-  color: #1c1a2f;
+.footer-github-link .material-symbols-outlined {
+  font-size: 0.95rem;
+  text-decoration: none;
 }
 
-.footer-links .footer-github-button:hover {
-  background-color: #f4f3fb;
-  color: #1c1a2f;
+.footer-github-link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 3px;
 }
 
 :root[data-theme="dark"] .navigation-container,
@@ -3459,24 +3495,34 @@
   color: #deddf5;
 }
 
-:root[data-theme="dark"] .footer-links a {
-  border-color: rgba(222, 221, 245, 0.3);
+:root[data-theme="dark"] .footer-github-link {
+  color: rgba(244, 243, 251, 0.62);
+}
+
+:root[data-theme="dark"] .footer-github-link:hover {
+  color: #f4f3fb;
+}
+:root[data-theme="dark"] .language-segmented-control {
+  border-color: rgba(222, 221, 245, 0.24);
+  background-color: rgba(222, 221, 245, 0.06);
+}
+
+:root[data-theme="dark"] .language-segment {
+  color: rgba(244, 243, 251, 0.72);
+}
+
+:root[data-theme="dark"] .language-segment:hover {
+  background-color: rgba(222, 221, 245, 0.1);
   color: #f4f3fb;
 }
 
-:root[data-theme="dark"] .footer-links a:hover {
-  background-color: rgba(222, 221, 245, 0.12);
+:root[data-theme="dark"] .language-segment-active {
+  background-color: rgba(222, 221, 245, 0.16);
+  color: #f4f3fb;
 }
 
-:root[data-theme="dark"] .footer-links .footer-github-button {
-  border-color: transparent;
-  background-color: #deddf5;
-  color: #1c1a2f;
-}
-
-:root[data-theme="dark"] .footer-links .footer-github-button:hover {
-  background-color: #f4f3fb;
-  color: #1c1a2f;
+:root[data-theme="dark"] .language-segment-active:hover {
+  background-color: rgba(222, 221, 245, 0.22);
 }
 
 :root[data-theme="dark"] .info-icon-button {

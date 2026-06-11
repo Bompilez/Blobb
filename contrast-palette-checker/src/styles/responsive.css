@@ -183,6 +183,7 @@
   }
 
   .navigation-anchor-items {
+    gap: var(--space-sm);
     justify-content: flex-end;
   }
 

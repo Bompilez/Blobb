@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { track } from "@vercel/analytics";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
+import { getTranslation, SUPPORTED_LANGUAGES } from "./lib/i18n";
 import { buildContrastPairPath, getMetaForRoute, getRouteStateFromPath, setMetaContent } from "./lib/routeMeta";
 import FaqPage from "./pages/FaqPage";
 import "./styles/index.css";
@@ -12,6 +13,7 @@ const DEFAULT_COLORS = [];
 const DEFAULT_COLOR_NAMES = [];
 const PALETTE_STORAGE_KEY = "blobb.palette.v1";
 const THEME_STORAGE_KEY = "blobb.theme.v1";
+const LANGUAGE_STORAGE_KEY = "blobb.language.v1";
 const COLOR_MAP_HUE_STEPS = 18;
 const COLOR_MAP_LIGHTNESS_STEPS = [94, 84, 74, 64, 54, 44, 34, 24, 14];
 
@@ -383,6 +385,24 @@ function loadThemePreference() {
   return "light";
 }
 
+function loadLanguagePreference() {
+  try {
+    const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+
+    if (SUPPORTED_LANGUAGES.includes(savedLanguage)) {
+      return savedLanguage;
+    }
+  } catch {
+    // ignore (storage disabled/private mode)
+  }
+
+  if (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("no")) {
+    return "no";
+  }
+
+  return "en";
+}
+
 function getColorsFromRoutePair(routePair) {
   if (!routePair) {
     return [];
@@ -422,6 +442,7 @@ function App() {
   const [routeContrastPair, setRouteContrastPair] = useState(initialRouteState.contrastPair);
   const [hasStoredPalette] = useState(initialHasStoredPalette);
   const [theme, setTheme] = useState(loadThemePreference);
+  const [language, setLanguage] = useState(initialRouteState.language ?? loadLanguagePreference());
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -446,7 +467,6 @@ function App() {
   const [paletteCssFormat, setPaletteCssFormat] = useState("hex");
   const [showPaletteExportModal, setShowPaletteExportModal] = useState(false);
   const [showCompareMoreMenu, setShowCompareMoreMenu] = useState(false);
-  const compareMoreMenuRef = useRef(null);
   const [activeScalePanel, setActiveScalePanel] = useState("");
   const [scaleSnippetType, setScaleSnippetType] = useState("css");
   const [scaleCssFormat, setScaleCssFormat] = useState("hex");
@@ -483,6 +503,7 @@ function App() {
   const scaleColors = canGenerateScale ? generateTints(scaleBaseColor, 9) : [];
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
+  const t = getTranslation(language);
   const paletteTokens = uniqueTokens(colors.map((_, index) => slugifyVariableBase(getColorName(index))));
   const paletteDeveloperSnippet = buildPaletteDeveloperSnippet(colors, paletteTokens, "palette", paletteCssFormat, paletteSnippetType);
   const scaleCompareActiveColor = scaleColors.some((item) => item.hex === activeScaleCompareColor) ? activeScaleCompareColor : scaleBaseColor;
@@ -506,7 +527,7 @@ function App() {
   const canAdjustSelectedColor = isValidHex(adjustingColor) && isValidHex(adjustingOppositeColor);
   const adjustingHsl = canAdjustSelectedColor ? hexToHSL(adjustingColor) : null;
   const adjustingContrast = canAdjustSelectedColor ? getContrast(adjustingColor, adjustingOppositeColor) : null;
-  const adjustingRole = adjustingSelectedIndex === 0 ? "Background" : "Text";
+  const adjustingRole = adjustingSelectedIndex === 0 ? t.common.background : t.common.text;
   const currentMapHueIndex = adjustingHsl !== null ? Math.round(adjustingHsl.h / (360 / COLOR_MAP_HUE_STEPS)) % COLOR_MAP_HUE_STEPS : -1;
   const currentMapLightness = adjustingHsl
     ? COLOR_MAP_LIGHTNESS_STEPS.reduce((closest, lightness) =>
@@ -604,13 +625,22 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.lang = language;
+
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // ignore (storage disabled/quota/private mode)
+    }
+  }, [language]);
+
+  useEffect(() => {
     function closeIfOutside(event) {
       if (!showCompareMoreMenu) {
         return;
       }
 
-      const node = compareMoreMenuRef.current;
-      if (node && !node.contains(event.target)) {
+      if (!event.target.closest(".compare-more-menu-shell")) {
         setShowCompareMoreMenu(false);
       }
     }
@@ -624,10 +654,12 @@ function App() {
       const nextRouteState = getRouteStateFromPath();
 
       if (nextRouteState.contrastPair) {
+        setLanguage(nextRouteState.language);
         applyContrastPairRoute(nextRouteState.contrastPair);
         return;
       }
 
+      setLanguage(nextRouteState.language);
       setRoute(nextRouteState.route);
       setRouteContrastPair(null);
     }
@@ -642,8 +674,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const meta = getMetaForRoute(route, routeContrastPair);
+    const meta = getMetaForRoute(route, routeContrastPair, language);
     const canonical = document.querySelector('link[rel="canonical"]');
+    const alternateEn = document.querySelector('link[rel="alternate"][hreflang="en"]');
+    const alternateNo = document.querySelector('link[rel="alternate"][hreflang="no"]');
+    const alternateDefault = document.querySelector('link[rel="alternate"][hreflang="x-default"]');
 
     document.title = meta.title;
     setMetaContent('meta[name="description"]', meta.description);
@@ -656,7 +691,19 @@ function App() {
     if (canonical) {
       canonical.setAttribute("href", meta.canonical);
     }
-  }, [route, routeContrastPair]);
+
+    if (alternateEn) {
+      alternateEn.setAttribute("href", meta.alternates.en);
+    }
+
+    if (alternateNo) {
+      alternateNo.setAttribute("href", meta.alternates.no);
+    }
+
+    if (alternateDefault) {
+      alternateDefault.setAttribute("href", meta.alternates.en);
+    }
+  }, [language, route, routeContrastPair]);
 
   useEffect(() => {
     if (
@@ -740,7 +787,8 @@ function App() {
     const passesGraphicsUI = contrast >= 3;
 
     const contrastElements = generateContrastStatus(contrast);
-    const uiButtonText = contrast >= 7 ? "Looks excellent" : contrast >= 4.5 ? "Looks good" : contrast >= 3 ? "Almost there" : "Can you even read me?";
+    const uiButtonText =
+      contrast >= 7 ? t.contrast.looksExcellent : contrast >= 4.5 ? t.contrast.looksGood : contrast >= 3 ? t.contrast.almostThere : t.contrast.canYouReadMe;
 
     selectedContrast = {
       colorA: selectedColors[0],
@@ -757,7 +805,7 @@ function App() {
     };
   }
 
-  const routeContrastPairPath = routeContrastPair ? buildContrastPairPath(routeContrastPair.backgroundColor, routeContrastPair.textColor) : "";
+  const routeContrastPairPath = routeContrastPair ? buildContrastPairPath(routeContrastPair.backgroundColor, routeContrastPair.textColor, language) : "";
   const shouldShowContrastSeoSummary =
     selectedContrast &&
     routeContrastPair &&
@@ -776,19 +824,19 @@ function App() {
     let contrastIcon;
 
     if (contrast >= 7.1) {
-      contrastStatus = "Great";
+      contrastStatus = t.contrast.statusGreat;
       contrastClass = "color-great";
       contrastIcon = "verified_user";
     } else if (contrast >= 4.5) {
-      contrastStatus = "Good";
+      contrastStatus = t.contrast.statusGood;
       contrastClass = "color-good";
       contrastIcon = "check";
     } else if (contrast >= 3.1) {
-      contrastStatus = "Ok";
+      contrastStatus = t.contrast.statusOk;
       contrastClass = "color-ok";
       contrastIcon = "info";
     } else {
-      contrastStatus = "Poor";
+      contrastStatus = t.contrast.statusPoor;
       contrastClass = "color-poor";
       contrastIcon = "close";
     }
@@ -1155,7 +1203,7 @@ function App() {
   }
 
   function changeRoute(nextRoute, hash = "") {
-    const nextMeta = getMetaForRoute(nextRoute);
+    const nextMeta = getMetaForRoute(nextRoute, null, language);
     const nextPath = `${nextMeta.path}${hash}`;
 
     if (`${window.location.pathname}${window.location.hash}` !== nextPath) {
@@ -1174,16 +1222,27 @@ function App() {
     }
   }
 
+  function changeLanguage(nextLanguage) {
+    const nextMeta = getMetaForRoute(route, routeContrastPair, nextLanguage);
+    const nextPath = `${nextMeta.path}${window.location.hash}`;
+
+    if (`${window.location.pathname}${window.location.hash}` !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+
+    setLanguage(nextLanguage);
+  }
+
   function renderInfoButton(panel) {
     const hash = panel === "scale" ? "#scale-generator" : "#contrast-checker";
 
     return (
       <div className="info-popover-container">
-        <button type="button" className="info-icon-button" onClick={() => changeRoute("helpFaq", hash)} aria-label="Read more in Help & FAQ">
+        <button type="button" className="info-icon-button" onClick={() => changeRoute("helpFaq", hash)} aria-label={t.common.readMore}>
           <span className="material-symbols-outlined" aria-hidden="true">
             info
           </span>
-          <span>Read more in Help & FAQ</span>
+          <span>{t.common.readMore}</span>
         </button>
       </div>
     );
@@ -1219,7 +1278,7 @@ function App() {
           </span>
           <span>{body}</span>
           <button type="button" className="panel-help-link" onClick={() => changeRoute("helpFaq", hash)}>
-            Read more in Help & FAQ
+            {t.common.readMore}
           </button>
         </span>
       </span>
@@ -1228,7 +1287,7 @@ function App() {
 
   function renderCompareModeSelector(className = "") {
     return (
-      <div className={`compare-mode-selector ${className}`} aria-label="Compare mode">
+      <div className={`compare-mode-selector ${className}`} aria-label={t.compareMode.aria}>
         <div className="compare-mode-selector-buttons">
           <button
             type="button"
@@ -1236,7 +1295,7 @@ function App() {
             onClick={() => changeCompareMode("manual")}
             disabled={isPaletteEmpty}
           >
-            Manual compare
+            {t.compareMode.manual}
           </button>
           <button
             type="button"
@@ -1244,7 +1303,7 @@ function App() {
             onClick={() => changeCompareMode("palette")}
             disabled={isPaletteEmpty}
           >
-            Palette compare
+            {t.compareMode.palette}
           </button>
           <button
             type="button"
@@ -1255,14 +1314,14 @@ function App() {
             <span className="material-symbols-outlined" aria-hidden="true">
               download
             </span>
-            Export palette
+            {t.compareMode.exportPalette}
           </button>
         </div>
-        <div className="compare-more-menu-shell" ref={compareMoreMenuRef}>
+        <div className="compare-more-menu-shell">
           <button
             type="button"
             className="compare-mode-option compare-mode-more-trigger"
-            aria-label="More compare actions"
+            aria-label={t.compareMode.moreActions}
             aria-haspopup="menu"
             aria-expanded={showCompareMoreMenu}
             onClick={() => setShowCompareMoreMenu((current) => !current)}
@@ -1273,7 +1332,7 @@ function App() {
             </span>
           </button>
           {showCompareMoreMenu && (
-            <div className="compare-more-menu" role="menu" aria-label="Compare actions">
+            <div className="compare-more-menu" role="menu" aria-label={t.compareMode.actions}>
               <button
                 type="button"
                 role="menuitem"
@@ -1287,7 +1346,7 @@ function App() {
                 <span className="material-symbols-outlined" aria-hidden="true">
                   download
                 </span>
-                Export palette
+                {t.compareMode.exportPalette}
               </button>
             </div>
           )}
@@ -1300,7 +1359,7 @@ function App() {
     <>
       <nav className="navigation-container">
         <div className="navigation-content">
-          <button type="button" className="logo-container" onClick={() => changeRoute("contrast")} aria-label="Go to Blobb home">
+          <button type="button" className="logo-container" onClick={() => changeRoute("contrast")} aria-label={t.nav.home}>
             <svg className="logo-svg" role="img" aria-label="Blobb" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 556.85 102.64">
               <g>
                 <path
@@ -1334,8 +1393,8 @@ function App() {
               />
             </svg>
           </button>
-          <div className="navigation-anchor-items" aria-label="Navigation">
-            <div className="route-tabs route-tabs-nav" role="tablist" aria-label="Pages">
+          <div className="navigation-anchor-items" aria-label={t.nav.navigation}>
+            <div className="route-tabs route-tabs-nav" role="tablist" aria-label={t.nav.pages}>
               <button
                 type="button"
                 role="tab"
@@ -1343,14 +1402,14 @@ function App() {
                 className={`route-tab ${route === "helpFaq" ? "route-tab-active" : ""}`}
                 onClick={() => changeRoute("helpFaq")}
               >
-                Help & FAQ
+                {t.nav.help}
               </button>
             </div>
             <button
               type="button"
               className="theme-toggle-button"
               onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={t.nav.theme(theme)}
               aria-pressed={theme === "dark"}
             >
               <span className="material-symbols-outlined" aria-hidden="true">
@@ -1362,7 +1421,7 @@ function App() {
       </nav>
       <div className="tool-switcher-shell">
         <div className="tool-switcher-content">
-          <div className="route-tabs tool-switcher" role="tablist" aria-label="Pages">
+          <div className="route-tabs tool-switcher" role="tablist" aria-label={t.nav.pages}>
             <button
               type="button"
               role="tab"
@@ -1370,7 +1429,7 @@ function App() {
               className={`route-tab ${route === "contrast" ? "route-tab-active" : ""}`}
               onClick={() => changeRoute("contrast")}
             >
-              Contrast checker
+              {t.nav.contrast}
             </button>
             <button
               type="button"
@@ -1379,7 +1438,7 @@ function App() {
               className={`route-tab ${route === "scale" ? "route-tab-active" : ""}`}
               onClick={() => changeRoute("scale")}
             >
-              Scale generator
+              {t.nav.scale}
             </button>
           </div>
         </div>
@@ -1392,14 +1451,13 @@ function App() {
                 <header className="intro-section">
                   <div>
                     <div>
-                      <h1>Check whether your colors or palette is readable</h1>
+                      <h1>{t.contrast.title}</h1>
                       <p>
-                        Compare foreground and background colors against{" "}
+                        {t.contrast.intro.split("WCAG")[0]}
                         <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
                           WCAG
-                        </a>{" "}
-                        contrast guidelines. Verify that text, icons, buttons, and other UI elements maintain sufficient contrast for readability and
-                        accessibility.
+                        </a>
+                        {t.contrast.intro.split("WCAG")[1]}
                       </p>
                       {renderInfoButton("contrast")}
                     </div>
@@ -1408,15 +1466,18 @@ function App() {
                 {shouldShowContrastSeoSummary && (
                   <section className={`contrast-seo-summary ${contrastSeoSummaryClass}`} aria-labelledby="contrast-pair-question">
                     <div>
-                      <p className="intro-eyebrow">Color contrast answer</p>
+                      <p className="intro-eyebrow">{t.contrast.answerEyebrow}</p>
                       <h2 id="contrast-pair-question">
-                        Does {selectedContrast.colorB} work on {selectedContrast.colorA}?
+                        {t.contrast.answerQuestion(selectedContrast.colorB, selectedContrast.colorA)}
                       </h2>
                       <p>
-                        {selectedContrast.colorB} on {selectedContrast.colorA} has a contrast ratio of{" "}
-                        <strong>{selectedContrast.contrast.toFixed(2)}:1</strong>. It{" "}
-                        <strong>{selectedContrast.passesSmallAA ? "passes" : "does not pass"}</strong> WCAG AA for normal text and{" "}
-                        <strong>{selectedContrast.passesLargeAA ? "passes" : "does not pass"}</strong> WCAG AA for large text and UI graphics.
+                        {t.contrast.answerCopy(
+                          selectedContrast.colorB,
+                          selectedContrast.colorA,
+                          selectedContrast.contrast.toFixed(2),
+                          selectedContrast.passesSmallAA,
+                          selectedContrast.passesLargeAA,
+                        )}
                       </p>
                     </div>
                     <div className="contrast-summary-actions">
@@ -1424,7 +1485,7 @@ function App() {
                         type="button"
                         className="contrast-summary-dismiss"
                         onClick={() => setDismissedContrastSummaryPath(routeContrastPairPath)}
-                        aria-label="Hide color contrast answer"
+                        aria-label={t.contrast.hideAnswer}
                       >
                         <span className="material-symbols-outlined" aria-hidden="true">
                           close
@@ -1440,7 +1501,7 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             add
                           </span>
-                          {canAddRouteColorsToPalette ? "Add these colors to palette" : "Palette is full"}
+                          {canAddRouteColorsToPalette ? t.contrast.addRouteColors : t.contrast.paletteFull}
                         </button>
                       )}
                     </div>
@@ -1452,20 +1513,20 @@ function App() {
                       <div className="palette-toolbar">
                         <div>
                           <div className="panel-heading-row">
-                            <p className="card-heading">Your palette</p>
+                            <p className="card-heading">{t.contrast.yourPalette}</p>
                             {renderPanelHelp({
                               id: "contrast-palette",
-                              title: "Your palette",
-                              body: "Add and manage the colors you want to test across the tools.",
+                              title: t.contrast.yourPalette,
+                              body: t.contrast.yourPaletteHelp,
                               hash: "#your-palette",
                             })}
                           </div>
-                          <p className="palette-count">{colors.length}/10 colors</p>
+                          <p className="palette-count">{t.contrast.colorCount(colors.length)}</p>
                         </div>
                         <div className="add-color-control">
                           <input
                             className="color-name-input"
-                            placeholder="Name color"
+                            placeholder={t.contrast.nameColor}
                             value={colorNameInput}
                             onChange={(e) => setColorNameInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -1488,7 +1549,7 @@ function App() {
                             />
                           </div>
                           <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                            Add
+                            {t.common.add}
                           </button>
                         </div>
                       </div>
@@ -1496,7 +1557,7 @@ function App() {
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
                             <span className="material-symbols-outlined">palette</span>
-                            <p>Add two colors to compare.</p>
+                            <p>{t.contrast.emptyPalette}</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
@@ -1516,7 +1577,7 @@ function App() {
                                 {compareMode === "manual" && (isBackgroundColor || isTextColor) && (
                                   <div className="palette-swatch-tags">
                                     {isBackgroundColor && <span>Bg</span>}
-                                    {isTextColor && <span>Text</span>}
+                                    {isTextColor && <span>{t.common.text}</span>}
                                   </div>
                                 )}
                                 <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
@@ -1549,32 +1610,32 @@ function App() {
                     <div className="compare-color-container">
                       <div className="compare-color-header">
                         <div className="panel-heading-row">
-                          <p className="card-heading">Selected colors</p>
+                          <p className="card-heading">{t.contrast.selectedColors}</p>
                           {renderPanelHelp({
                             id: "selected-colors",
-                            title: "Selected colors",
-                            body: "Choose which palette colors act as text and background in manual compare.",
+                            title: t.contrast.selectedColors,
+                            body: t.contrast.selectedColorsHelp,
                             hash: "#selected-colors",
                           })}
                         </div>
                         <button className="swap-color-button" onClick={swapSelectedColors} disabled={!selectedContrast}>
                           <span className="material-symbols-outlined">swap_horiz</span>
-                          Swap
+                          {t.contrast.swap}
                         </button>
                       </div>
                       <div className="selected-slot-control">
                         <button className={activeSelectedIndex === 1 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(1)}>
-                          Text
+                          {t.common.text}
                         </button>
                         <button className={activeSelectedIndex === 0 ? "selected-slot-active" : ""} onClick={() => setActiveSelectedIndex(0)}>
-                          Background
+                          {t.common.background}
                         </button>
                       </div>
                       {selectedContrast ? (
                         <div className="compare-color-controls">
                           {[
-                            { label: "Text color", color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
-                            { label: "Background color", color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
+                            { label: t.contrast.textColor, color: selectedContrast.colorB, selectedIndex: 1, className: "compare-color-b" },
+                            { label: t.contrast.backgroundColor, color: selectedContrast.colorA, selectedIndex: 0, className: "compare-color-a" },
                           ].map((selectedColor) => (
                             <div
                               className={`compare-color-item ${activeSelectedIndex === selectedColor.selectedIndex ? "compare-color-item-active" : ""}`}
@@ -1584,7 +1645,7 @@ function App() {
                               <div className="compare-color-title-row">
                                 <p className="card-heading">{selectedColor.label}</p>
                                 <span className="selected-chip" aria-hidden={activeSelectedIndex !== selectedColor.selectedIndex}>
-                                  Selected
+                                  {t.common.selected}
                                 </span>
                               </div>
                               <div className="selected-color-body">
@@ -1615,13 +1676,13 @@ function App() {
                                     type="button"
                                     className="tune-selected-color-button"
                                     onClick={(event) => openColorAdjuster(selectedColor.selectedIndex, event)}
-                                    aria-label={`Tune ${selectedColor.label} with contrast map`}
+                                    aria-label={`${t.contrast.tuneFull}: ${selectedColor.label}`}
                                   >
                                     <span className="material-symbols-outlined" aria-hidden="true">
                                       tune
                                     </span>
-                                    <span className="tune-button-label-full">Tune with contrast map</span>
-                                    <span className="tune-button-label-short">Tune color</span>
+                                    <span className="tune-button-label-full">{t.contrast.tuneFull}</span>
+                                    <span className="tune-button-label-short">{t.contrast.tuneShort}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1630,7 +1691,7 @@ function App() {
                         </div>
                       ) : (
                         <div className="empty-panel-state">
-                          <p>{canComparePalette ? "No selection yet" : "Add two colors to compare."}</p>
+                          <p>{canComparePalette ? t.contrast.noSelection : t.contrast.emptyPalette}</p>
                         </div>
                       )}
                     </div>
@@ -1642,7 +1703,7 @@ function App() {
                   {compareMode === "manual" && !selectedContrast && (
                     <div className="select-color-result-container">
                       <div className="quiet-empty-state">
-                        <p>{canComparePalette ? "Select two colors from your palette." : "Add two colors to compare."}</p>
+                        <p>{canComparePalette ? t.contrast.selectTwo : t.contrast.emptyPalette}</p>
                       </div>
                     </div>
                   )}
@@ -1651,11 +1712,11 @@ function App() {
                       <div className="compare-color-section">
                         <div className="compare-color-text-container">
                           <div className="panel-heading-row contrast-heading-row">
-                            <p className="compare-info-text card-heading">Contrast</p>
+                            <p className="compare-info-text card-heading">{t.contrast.contrast}</p>
                             {renderPanelHelp({
                               id: "contrast-ratio",
-                              title: "Contrast",
-                              body: "Shows the WCAG ratio and whether the selected pair passes common text and UI thresholds.",
+                              title: t.contrast.contrast,
+                              body: t.contrast.contrastHelp,
                               hash: "#manual-compare",
                             })}
                           </div>
@@ -1669,14 +1730,14 @@ function App() {
                           <div className="contrast-checker-container">
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text">
-                                <h4>Large text</h4>
+                                <h4>{t.contrast.largeText}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesLargeAA ? "success" : "error"}`}>
                                   {selectedContrast.passesLargeAA ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {t.common.levelAA}
                                 </p>
                                 <p className={`contrast-check ${selectedContrast.passesLargeAAA ? "success" : "error"}`}>
                                   {selectedContrast.passesLargeAAA ? (
@@ -1684,27 +1745,27 @@ function App() {
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AAA
+                                  {t.common.levelAAA}
                                 </p>
                               </div>
                               <p className="usage-note">
                                 {selectedContrast.passesLargeAAA
-                                  ? "Strong choice for large headings and bold display text."
+                                  ? t.contrast.usageLargeStrong
                                   : selectedContrast.passesLargeAA
-                                    ? "Use for large headings and bold display text, but avoid for critical or long-form reading."
-                                    : "Not recommended for headings or display text without adjusting one color."}
+                                    ? t.contrast.usageLargeOk
+                                    : t.contrast.usageLargeFail}
                               </p>
                             </div>
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text">
-                                <h4>Small text</h4>
+                                <h4>{t.contrast.smallText}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesSmallAA ? "success" : "error"}`}>
                                   {selectedContrast.passesSmallAA ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {t.common.levelAA}
                                 </p>
                                 <p className={`contrast-check ${selectedContrast.passesSmallAAA ? "success" : "error"}`}>
                                   {selectedContrast.passesSmallAAA ? (
@@ -1712,44 +1773,42 @@ function App() {
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AAA
+                                  {t.common.levelAAA}
                                 </p>
                               </div>
                               <p className="usage-note">
                                 {selectedContrast.passesSmallAAA
-                                  ? "Strong choice for body copy, labels, forms, and small UI text."
+                                  ? t.contrast.usageSmallStrong
                                   : selectedContrast.passesSmallAA
-                                    ? "Use for body copy, labels, forms, and standard UI text, but avoid for small text that needs extra-high contrast."
-                                    : "Avoid for body copy, labels, forms, and small UI text."}
+                                    ? t.contrast.usageSmallOk
+                                    : t.contrast.usageSmallFail}
                               </p>
                             </div>
                             <div className="contrast-checker-group">
                               <div className="contrast-checker-text contrast-checker-text-single">
-                                <h4>Graphics & UI Elements</h4>
+                                <h4>{t.contrast.graphicsUi}</h4>
                                 <p className={`contrast-check ${selectedContrast.passesGraphicsUI ? "success" : "error"}`}>
                                   {selectedContrast.passesGraphicsUI ? (
                                     <span className="material-symbols-outlined">check</span>
                                   ) : (
                                     <span className="material-symbols-outlined">close</span>
                                   )}{" "}
-                                  Level AA
+                                  {t.common.levelAA}
                                 </p>
                               </div>
                               <p className="usage-note">
-                                {selectedContrast.passesGraphicsUI
-                                  ? "Good for icons, control borders, focus states, and visual indicators."
-                                  : "Avoid for icons, control states, focus indicators, and important graphics."}
+                                {selectedContrast.passesGraphicsUI ? t.contrast.usageGraphicsPass : t.contrast.usageGraphicsFail}
                               </p>
                             </div>
                           </div>
                         </div>
                         <section className="preview-section">
                           <div className="panel-heading-row">
-                            <p className="card-heading">Preview</p>
+                            <p className="card-heading">{t.contrast.preview}</p>
                             {renderPanelHelp({
                               id: "preview",
-                              title: "Preview",
-                              body: "Shows the selected pair in UI-like examples so the ratio is easier to judge visually.",
+                              title: t.contrast.preview,
+                              body: t.contrast.previewHelp,
                               hash: "#manual-compare",
                             })}
                           </div>
@@ -1761,28 +1820,28 @@ function App() {
                             }}
                           >
                             <div className="preview-topbar">
-                              <span className="preview-status-pill">Live preview</span>
+                              <span className="preview-status-pill">{t.contrast.livePreview}</span>
                             </div>
                             <div className="preview-hero-row">
                               <div>
-                                <h3 className="preview-title">Large text, 24px medium</h3>
-                                <p className="preview-text-24-medium">Large text, 24px medium</p>
-                                <p className="preview-text-19-bold">Large text, 19px bold</p>
+                                <h3 className="preview-title">{t.contrast.previewLargeMedium}</h3>
+                                <p className="preview-text-24-medium">{t.contrast.previewLargeMedium}</p>
+                                <p className="preview-text-19-bold">{t.contrast.previewLargeBold}</p>
                               </div>
                               <div className="preview-metric">
                                 <strong>{selectedContrast.contrast.toFixed(1)}</strong>
-                                <span>contrast</span>
+                                <span>{t.contrast.contrast.toLowerCase()}</span>
                               </div>
                             </div>
                             <div className="preview-content-grid">
                               <div className="preview-sample-block">
-                                <h4>Small text</h4>
-                                <p className="preview-text-16-medium">Small text, 16px medium weight</p>
-                                <p className="preview-text-16-regular">Small text, 16px regular weight</p>
-                                <p className="preview-text-14-regular">Caption text, 14px regular weight</p>
+                                <h4>{t.contrast.smallText}</h4>
+                                <p className="preview-text-16-medium">{t.contrast.previewSmallMedium}</p>
+                                <p className="preview-text-16-regular">{t.contrast.previewSmallRegular}</p>
+                                <p className="preview-text-14-regular">{t.contrast.previewCaption}</p>
                               </div>
                               <div className="preview-sample-block preview-ui-sample">
-                                <h4>Graphics & UI Elements</h4>
+                                <h4>{t.contrast.graphicsUi}</h4>
                                 <div className="preview-progress-track">
                                   <div className="preview-progress-fill" style={{ width: `${selectedContrast.contrastProgress}%` }}></div>
                                 </div>
@@ -1807,7 +1866,7 @@ function App() {
                       {(!canComparePalette || !activePaletteColor) && (
                         <div className="quiet-empty-state">
                           <span className="material-symbols-outlined">ads_click</span>
-                          <p>{canComparePalette ? "Select a color from your palette to compare." : "Add two colors to compare."}</p>
+                          <p>{canComparePalette ? t.contrast.selectPaletteColor : t.contrast.emptyPalette}</p>
                         </div>
                       )}
                       {canComparePalette && activePaletteColor && (
@@ -1815,45 +1874,32 @@ function App() {
                           <div className="palette-compare-intro scale-compare-intro">
                             <div>
                               <div className="panel-heading-row">
-                                <p className="card-heading">Palette compare</p>
+                                <p className="card-heading">{t.contrast.paletteCompare}</p>
                                 {renderPanelHelp({
                                   id: "palette-compare",
-                                  title: "Palette compare",
-                                  body: "Scans your palette against itself and highlights which pairs work for normal text.",
+                                  title: t.contrast.paletteCompare,
+                                  body: t.contrast.paletteCompareHelp,
                                   hash: "#palette-compare",
                                 })}
                               </div>
                               <p className="palette-compare-copy palette-compare-copy-grid">
                                 {paletteCompareView === "list" ? (
                                   <>
-                                    Compare{" "}
-                                    <strong>
-                                      {activePaletteColorName} ({activePaletteColor})
-                                    </strong>{" "}
-                                    against the rest of your palette as a simple list. Each item shows the contrast result for that pair (normal text).
+                                    {t.contrast.paletteCompareListCopy(activePaletteColorName, activePaletteColor)}
                                   </>
                                 ) : (
                                   <>
-                                    Compare every color in your palette against every other color. The highlighted row and column show where{" "}
-                                    <strong>
-                                      {activePaletteColorName} ({activePaletteColor})
-                                    </strong>{" "}
-                                    works as either text or background.
+                                    {t.contrast.paletteCompareGridCopy(activePaletteColorName, activePaletteColor)}
                                   </>
                                 )}
                               </p>
                               <p className="palette-compare-copy palette-compare-copy-list">
-                                Compare{" "}
-                                <strong>
-                                  {activePaletteColorName} ({activePaletteColor})
-                                </strong>{" "}
-                                against the rest of your palette as a simple list. Each item shows the contrast result for that pair (normal text). Select another
-                                swatch in your palette to change the active color.
+                                {t.contrast.paletteCompareMobileCopy(activePaletteColorName, activePaletteColor)}
                               </p>
                             </div>
                           </div>
                           <div className="palette-compare-tools">
-                            <div className="palette-view-toggle" role="tablist" aria-label="Palette compare view">
+                            <div className="palette-view-toggle" role="tablist" aria-label={t.contrast.paletteCompare}>
                               <button
                                 type="button"
                                 role="tab"
@@ -1861,7 +1907,7 @@ function App() {
                                 className={`palette-view-option ${paletteCompareView === "grid" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setPaletteCompareView("grid")}
                               >
-                                Grid
+                                {t.common.grid}
                               </button>
                               <button
                                 type="button"
@@ -1870,7 +1916,7 @@ function App() {
                                 className={`palette-view-option ${paletteCompareView === "list" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setPaletteCompareView("list")}
                               >
-                                List
+                                {t.common.list}
                               </button>
                             </div>
                             <label className="palette-pass-switch">
@@ -1878,7 +1924,7 @@ function App() {
                               <span className="switch-track" aria-hidden="true">
                                 <span className="switch-thumb"></span>
                               </span>
-                              <span>Focus passing pairs</span>
+                              <span>{t.common.focusPassingPairs}</span>
                             </label>
                           </div>
                           <div
@@ -1940,7 +1986,7 @@ function App() {
                                       onClick={() => selectedColor(backgroundColor)}
                                     >
                                       <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
-                                      <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                      <strong>{sameColor ? t.common.same : passes ? t.common.pass : t.common.fail}</strong>
                                       <small>{contrast.toFixed(1)} : 1</small>
                                     </div>
                                   );
@@ -1980,7 +2026,7 @@ function App() {
                                   </div>
                                   <div className="palette-mobile-pair-result">
                                     <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
-                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                    <strong>{sameColor ? t.common.same : passes ? t.common.pass : t.common.fail}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
                                 </div>
@@ -1999,11 +2045,8 @@ function App() {
               <header className="intro-section">
                 <div>
                   <div>
-                    <h1>Generate a clean scale from one color</h1>
-                    <p>
-                      Select a color from your palette to generate darker and lighter UI steps around it. Create related shades for surfaces, borders, hover
-                      states, selected states, and readable color combinations that stay visually consistent.
-                    </p>
+                    <h1>{t.scale.title}</h1>
+                    <p>{t.scale.intro}</p>
                     {renderInfoButton("scale")}
                   </div>
                 </div>
@@ -2015,20 +2058,20 @@ function App() {
                       <div className="palette-toolbar">
                         <div>
                           <div className="panel-heading-row">
-                            <p className="card-heading">Your palette</p>
+                            <p className="card-heading">{t.contrast.yourPalette}</p>
                             {renderPanelHelp({
                               id: "scale-palette",
-                              title: "Your palette",
-                              body: "Select the base color you want to turn into a scale.",
+                              title: t.contrast.yourPalette,
+                              body: t.scale.paletteHelp,
                               hash: "#your-palette",
                             })}
                           </div>
-                          <p className="palette-count">{colors.length}/10 colors</p>
+                          <p className="palette-count">{t.contrast.colorCount(colors.length)}</p>
                         </div>
                         <div className="add-color-control">
                           <input
                             className="color-name-input"
-                            placeholder="Name color"
+                            placeholder={t.contrast.nameColor}
                             value={colorNameInput}
                             onChange={(e) => setColorNameInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -2051,7 +2094,7 @@ function App() {
                             />
                           </div>
                           <button className="add-color-button" onClick={addColor} disabled={!canAddColor}>
-                            Add
+                            {t.common.add}
                           </button>
                         </div>
                       </div>
@@ -2059,7 +2102,7 @@ function App() {
                         {isPaletteEmpty && (
                           <div className="palette-empty-callout">
                             <span className="material-symbols-outlined">palette</span>
-                            <p>Add one color to genereate scale.</p>
+                            <p>{t.scale.emptyPalette}</p>
                           </div>
                         )}
                         {colors.map((color, index) => {
@@ -2075,7 +2118,7 @@ function App() {
                                 ></div>
                                 {isSelected && (
                                   <div className="palette-swatch-tags" aria-hidden="true">
-                                    <span>Base</span>
+                                    <span>{t.common.base}</span>
                                   </div>
                                 )}
                                 <button className="edit-color-button" onClick={() => startEditColor(index)} aria-label={`Edit ${getColorName(index)} ${color}`}>
@@ -2108,27 +2151,26 @@ function App() {
 
                 <section
                   className={`scale-generator-panel scale-page-scale-row ${isPaletteEmpty ? "scale-generator-panel-palette-empty" : ""}`}
-                  aria-label="Scale generator"
+                  aria-label={t.nav.scale}
                 >
                   <div className="scale-generator-header">
                     <div>
                       <div className="panel-heading-row">
-                        <p className="card-heading">Generated scale</p>
+                        <p className="card-heading">{t.scale.generatedScale}</p>
                         {renderPanelHelp({
                           id: "scale",
-                          title: "Generated scale",
-                          body: "Generates lighter and darker steps from one selected base color.",
+                          title: t.scale.generatedScale,
+                          body: t.scale.generatedScaleHelp,
                           hash: "#scale-generator",
                         })}
                       </div>
                       <p className="scale-generator-subtitle">
                         {canGenerateScale ? (
                           <>
-                            Build lighter and darker steps from {activePaletteColorName || "the selected color"}{" "}
-                            <span className="mono">({scaleBaseColor})</span>. Use the steps for surfaces, borders, hover states, and readable pairings.
+                            {t.scale.generatedSubtitle(activePaletteColorName, scaleBaseColor)}
                           </>
                         ) : (
-                          "Select a color in your palette to generate its scale."
+                          t.scale.selectToGenerate
                         )}
                       </p>
                     </div>
@@ -2153,7 +2195,7 @@ function App() {
                           </button>
                         ))}
                       </div>
-                      <div className="scale-panel-switch" role="tablist" aria-label="Scale tools">
+                      <div className="scale-panel-switch" role="tablist" aria-label={t.nav.scale}>
                         <button
                           type="button"
                           role="tab"
@@ -2164,7 +2206,7 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             contrast
                           </span>
-                          Compare scale
+                          {t.scale.compareScale}
                         </button>
                         <button
                           type="button"
@@ -2176,22 +2218,19 @@ function App() {
                           <span className="material-symbols-outlined" aria-hidden="true">
                             code
                           </span>
-                          Export scale
+                          {t.scale.exportScale}
                         </button>
                       </div>
                       {activeScalePanel === "compare" && (
-                        <div className="palette-compare-section scale-compare-section" aria-label="Scale contrast comparison">
+                        <div className="palette-compare-section scale-compare-section" aria-label={t.scale.scaleContrast}>
                           <div className="palette-compare-intro scale-compare-intro">
                             <div>
-                              <p className="card-heading scale-contrast-heading">Scale contrast</p>
-                              <p className="scale-contrast-copy">
-                                Compare the generated scale steps against each other to find readable text and background pairs. Pairs marked pass meet the
-                                normal text threshold.
-                              </p>
+                              <p className="card-heading scale-contrast-heading">{t.scale.scaleContrast}</p>
+                              <p className="scale-contrast-copy">{t.scale.scaleContrastCopy}</p>
                             </div>
                           </div>
                           <div className="palette-compare-tools">
-                            <div className="palette-view-toggle" role="tablist" aria-label="Scale compare view">
+                            <div className="palette-view-toggle" role="tablist" aria-label={t.scale.scaleContrast}>
                               <button
                                 type="button"
                                 role="tab"
@@ -2199,7 +2238,7 @@ function App() {
                                 className={`palette-view-option ${scaleCompareView === "grid" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setScaleCompareView("grid")}
                               >
-                                Grid
+                                {t.common.grid}
                               </button>
                               <button
                                 type="button"
@@ -2208,7 +2247,7 @@ function App() {
                                 className={`palette-view-option ${scaleCompareView === "list" ? "palette-view-option-active" : ""}`}
                                 onClick={() => setScaleCompareView("list")}
                               >
-                                List
+                                {t.common.list}
                               </button>
                             </div>
                             <label className="palette-pass-switch">
@@ -2216,7 +2255,7 @@ function App() {
                               <span className="switch-track" aria-hidden="true">
                                 <span className="switch-thumb"></span>
                               </span>
-                              <span>Focus passing pairs</span>
+                              <span>{t.common.focusPassingPairs}</span>
                             </label>
                           </div>
                           <div
@@ -2278,7 +2317,7 @@ function App() {
                                       onClick={() => setActiveScaleCompareColor(backgroundItem.hex)}
                                     >
                                       <span className="material-symbols-outlined">{passes ? "check" : "close"}</span>
-                                      <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                      <strong>{sameColor ? t.common.same : passes ? t.common.pass : t.common.fail}</strong>
                                       <small>{contrast.toFixed(1)} : 1</small>
                                     </div>
                                   );
@@ -2291,8 +2330,8 @@ function App() {
                               scaleCompareView === "grid" ? "palette-compare-view-hidden" : "palette-compare-view-active"
                             }`}
                           >
-                            <p className="scale-compare-list-title">Select active scale color</p>
-                            <div className="scale-compare-list-selector" aria-label="Select active scale color">
+                            <p className="scale-compare-list-title">{t.scale.selectActiveScale}</p>
+                            <div className="scale-compare-list-selector" aria-label={t.scale.selectActiveScale}>
                               {scaleColors.map((item, index) => {
                                 const isSelected = item.hex === scaleCompareActiveColor;
                                 return (
@@ -2336,7 +2375,7 @@ function App() {
                                   </div>
                                   <div className="palette-mobile-pair-result">
                                     <span className="material-symbols-outlined">{sameColor || !passes ? "close" : "check"}</span>
-                                    <strong>{sameColor ? "Same" : passes ? "Pass" : "Fail"}</strong>
+                                    <strong>{sameColor ? t.common.same : passes ? t.common.pass : t.common.fail}</strong>
                                     <small>{contrast.toFixed(1)} : 1</small>
                                   </div>
                                 </div>
@@ -2349,11 +2388,11 @@ function App() {
                         <div className="scale-css-preview">
                           <div className="scale-css-preview-header">
                             <div>
-                              <p className="card-heading">Developer export</p>
-                              <p>Copy the scale as CSS variables, a JS object, or JSON tokens.</p>
+                              <p className="card-heading">{t.scale.developerExport}</p>
+                              <p>{t.scale.developerExportCopy}</p>
                             </div>
                             <div className="scale-css-controls">
-                              <div className="scale-css-format-selector" aria-label="Developer export type">
+                              <div className="scale-css-format-selector" aria-label={t.scale.developerExport}>
                                 {["css", "js", "json"].map((type) => (
                                   <button
                                     key={type}
@@ -2366,7 +2405,7 @@ function App() {
                                   </button>
                                 ))}
                               </div>
-                              <div className="scale-css-format-selector" aria-label="Color value format">
+                              <div className="scale-css-format-selector" aria-label={t.export.valueFormat}>
                                 {["hex", "rgb", "hsl"].map((format) => (
                                   <button
                                     key={format}
@@ -2383,7 +2422,7 @@ function App() {
                                 <span className="material-symbols-outlined" aria-hidden="true">
                                   {copiedColor === "scale-ase" ? "check" : "download"}
                                 </span>
-                                Download ASE
+                                {t.common.downloadAse}
                               </button>
                             </div>
                           </div>
@@ -2392,7 +2431,7 @@ function App() {
                               <span className="material-symbols-outlined" aria-hidden="true">
                                 {copiedColor === "scale-css" ? "check" : "content_copy"}
                               </span>
-                              Copy snippet
+                              {t.common.copySnippet}
                             </button>
                             <pre className="scale-css-code">
                               <code>{scaleDeveloperSnippet}</code>
@@ -2404,14 +2443,14 @@ function App() {
                   ) : (
                     <div className="empty-panel-state">
                       <span className="material-symbols-outlined">palette</span>
-                      <p>Select a color to generate a scale.</p>
+                      <p>{t.scale.emptyScale}</p>
                     </div>
                   )}
                 </section>
               </div>
             </div>
           ) : (
-            <FaqPage />
+            <FaqPage language={language} />
           )}
         </div>
       </section>
@@ -2422,12 +2461,12 @@ function App() {
               <div>
                 <div className="contrast-adjust-title-row">
                   <p className="card-heading" id="contrast-adjust-title">
-                    Tune {adjustingRole.toLowerCase()} color
+                    {t.edit.tuneColor(adjustingRole)}
                   </p>
                   <button
                     type="button"
                     className="contrast-adjust-help-button"
-                    aria-label="Show color tuning help"
+                    aria-label={t.edit.showHelp}
                     aria-expanded={showAdjustInfo}
                     onClick={() => setShowAdjustInfo((current) => !current)}
                   >
@@ -2437,18 +2476,17 @@ function App() {
                   </button>
                 </div>
                 <p>
-                  Find colors that pass against {adjustingOppositeName} <span className="mono">({adjustingOppositeColor})</span>.
+                  {t.edit.findPassing(adjustingOppositeName, adjustingOppositeColor)}
                 </p>
               </div>
-              <button className="edit-color-modal-close" onClick={closeColorAdjuster} aria-label="Close color adjustment dialog">
+              <button className="edit-color-modal-close" onClick={closeColorAdjuster} aria-label={t.edit.closeAdjust}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             {showAdjustInfo && (
               <div className="contrast-adjust-help-panel">
                 <p>
-                  The map tests possible colors against the opposite selected color. Click a cell to preview it, adjust HSL if needed, then save when the
-                  contrast and color feel right.
+                  {t.edit.helpCopy}
                 </p>
               </div>
             )}
@@ -2461,20 +2499,20 @@ function App() {
                     color: adjustingSelectedIndex === 1 ? adjustingColor : adjustingOppositeColor,
                   }}
                 >
-                  <strong>Readable text</strong>
+                  <strong>{t.edit.readableText}</strong>
                   <span>
-                    {adjustingContrast.toFixed(2)} : 1 {adjustingContrast >= 4.5 ? "Pass" : "Fail"}
+                    {adjustingContrast.toFixed(2)} : 1 {adjustingContrast >= 4.5 ? t.common.pass : t.common.fail}
                   </span>
                 </div>
                 <div className="contrast-adjust-color-row">
                   <div>
-                    <span>Draft</span>
+                    <span>{t.edit.draft}</span>
                     <strong>
                       {adjustingColorName} ({adjustingColor})
                     </strong>
                   </div>
                   <div>
-                    <span>Against</span>
+                    <span>{t.edit.against}</span>
                     <strong>
                       {adjustingOppositeName} ({adjustingOppositeColor})
                     </strong>
@@ -2484,10 +2522,10 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     swap_horiz
                   </span>
-                  Tune {adjustingSelectedIndex === 0 ? "text" : "background"} instead
+                  {t.edit.tuneInstead(adjustingSelectedIndex === 0 ? t.common.text.toLowerCase() : t.common.background.toLowerCase())}
                 </button>
                 <label className="edit-color-modal-field">
-                  Hex value
+                  {t.edit.hexValue}
                   <div className="hex-input-shell contrast-adjust-hex-shell">
                     <span>#</span>
                     <input
@@ -2505,7 +2543,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Hue <strong>{adjustingHsl.h}</strong>
+                    {t.edit.hue} <strong>{adjustingHsl.h}</strong>
                   </span>
                   <input
                     className="hue-slider"
@@ -2518,7 +2556,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Saturation <strong>{adjustingHsl.s}%</strong>
+                    {t.edit.saturation} <strong>{adjustingHsl.s}%</strong>
                   </span>
                   <input
                     className="contrast-adjust-range"
@@ -2531,7 +2569,7 @@ function App() {
                 </label>
                 <label className="contrast-adjust-slider">
                   <span>
-                    Lightness <strong>{adjustingHsl.l}%</strong>
+                    {t.edit.lightness} <strong>{adjustingHsl.l}%</strong>
                   </span>
                   <input
                     className="contrast-adjust-range"
@@ -2546,21 +2584,21 @@ function App() {
               <div className="contrast-map-panel">
                 <div className="contrast-map-header">
                   <div>
-                    <p className="card-heading">Passing color map</p>
-                    <p>Hue runs left to right. Lightness runs from light to dark.</p>
+                    <p className="card-heading">{t.edit.passingColorMap}</p>
+                    <p>{t.edit.mapCopy}</p>
                   </div>
-                  <div className="contrast-map-legend" aria-label="Contrast map legend">
+                  <div className="contrast-map-legend" aria-label={t.edit.mapLegend}>
                     <span>
                       <span className="material-symbols-outlined" aria-hidden="true">
                         check
                       </span>
-                      Pass
+                      {t.common.pass}
                     </span>
                     <span>
                       <span className="material-symbols-outlined" aria-hidden="true">
                         close
                       </span>
-                      Fail
+                      {t.common.fail}
                     </span>
                   </div>
                 </div>
@@ -2582,7 +2620,7 @@ function App() {
                           key={`${lightness}-${hue}`}
                           style={{ backgroundColor: candidate, color: getReadableTextColor(candidate) }}
                           onClick={() => setAdjustingDraftColor(candidate)}
-                          aria-label={`${candidate}, ${contrast.toFixed(1)} to 1, ${passes ? "passes" : "fails"}`}
+                          aria-label={t.edit.mapCellLabel(candidate, contrast.toFixed(1), passes)}
                           title={`${candidate} - ${contrast.toFixed(1)}:1`}
                         >
                           <span className="material-symbols-outlined" aria-hidden="true">
@@ -2595,8 +2633,8 @@ function App() {
                 </div>
                 <div className="passing-candidates-panel">
                   <div>
-                    <p className="card-heading">Passing candidates</p>
-                    <p>Tap a larger swatch to preview a passing option.</p>
+                    <p className="card-heading">{t.edit.passingCandidates}</p>
+                    <p>{t.edit.candidatesCopy}</p>
                   </div>
                   <div className="passing-candidates-grid">
                     {COLOR_MAP_LIGHTNESS_STEPS.flatMap((lightness) =>
@@ -2631,11 +2669,11 @@ function App() {
             <div className="contrast-adjust-actions">
               <button type="button" className="edit-color-action-button edit-color-action-primary" onClick={saveColorAdjustment}>
                 <span className="material-symbols-outlined">check</span>
-                Save color change
+                {t.edit.saveColorChange}
               </button>
               <button type="button" className="edit-color-action-button edit-color-action-secondary" onClick={closeColorAdjuster}>
                 <span className="material-symbols-outlined">close</span>
-                Cancel
+                {t.common.cancel}
               </button>
             </div>
           </div>
@@ -2646,28 +2684,28 @@ function App() {
           <div className="edit-color-modal" onClick={(event) => event.stopPropagation()}>
             <div className="edit-color-modal-header">
               <div>
-                <p className="card-heading" id="edit-color-title">
-                  Edit color
+                  <p className="card-heading" id="edit-color-title">
+                  {t.edit.editColor}
                 </p>
                 <p>{editingColor}</p>
               </div>
-              <button className="edit-color-modal-close" onClick={cancelEditColor} aria-label="Close edit color dialog">
+              <button className="edit-color-modal-close" onClick={cancelEditColor} aria-label={t.edit.closeEdit}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="edit-color-modal-preview" style={{ backgroundColor: canSaveEditColor ? cleanedEditColorInput : editingColor }}></div>
             <label className="edit-color-modal-field">
-              Color name
+              {t.edit.colorName}
               <input
                 className="edit-color-name-input"
-                placeholder="Color name"
+                placeholder={t.edit.colorName}
                 value={editColorNameInput}
                 onChange={(e) => setEditColorNameInput(e.target.value)}
                 autoFocus
               />
             </label>
             <label className="edit-color-modal-field">
-              Hex value
+              {t.edit.hexValue}
               <input className="edit-color-input" value={editColorInput} onChange={(e) => setEditColorInput(e.target.value)} />
             </label>
             <div className="edit-color-actions">
@@ -2677,11 +2715,11 @@ function App() {
                 disabled={!canSaveEditColor}
               >
                 <span className="material-symbols-outlined">check</span>
-                Save
+                {t.common.save}
               </button>
               <button className="edit-color-action-button edit-color-action-secondary" onClick={cancelEditColor}>
                 <span className="material-symbols-outlined">close</span>
-                Cancel
+                {t.common.cancel}
               </button>
             </div>
           </div>
@@ -2699,21 +2737,21 @@ function App() {
             <div className="edit-color-modal-header">
               <div>
                 <p className="card-heading" id="palette-export-title">
-                  Export palette
+                  {t.export.paletteTitle}
                 </p>
-                <p>Copy tokens for developers or export a swatch file for design tools.</p>
+                <p>{t.export.paletteCopy}</p>
               </div>
               <button
                 className="edit-color-modal-close"
                 onClick={() => setShowPaletteExportModal(false)}
-                aria-label="Close palette export dialog"
+                aria-label={t.export.closePalette}
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="palette-export-modal-body">
               <div className="scale-css-controls palette-export-controls-row">
-                <div className="scale-css-format-selector" aria-label="Export type">
+                <div className="scale-css-format-selector" aria-label={t.export.type}>
                   {["css", "json"].map((type) => (
                     <button
                       key={`palette-type-modal-${type}`}
@@ -2726,7 +2764,7 @@ function App() {
                     </button>
                   ))}
                 </div>
-                <div className="scale-css-format-selector" aria-label="Color value format">
+                <div className="scale-css-format-selector" aria-label={t.export.valueFormat}>
                   {["hex", "rgb", "hsl"].map((format) => (
                     <button
                       key={`palette-format-modal-${format}`}
@@ -2743,7 +2781,7 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     {copiedColor === "palette-ase" ? "check" : "download"}
                   </span>
-                  Download ASE
+                  {t.common.downloadAse}
                 </button>
               </div>
               <div className="scale-code-window">
@@ -2751,7 +2789,7 @@ function App() {
                   <span className="material-symbols-outlined" aria-hidden="true">
                     {copiedColor === "palette-snippet" ? "check" : "content_copy"}
                   </span>
-                  Copy snippet
+                  {t.common.copySnippet}
                 </button>
                 <pre className="scale-css-code">
                   <code>{paletteDeveloperSnippet}</code>
@@ -2796,18 +2834,33 @@ function App() {
                 d="M94.6,0h-52.53c-4.37,0-7.9,3.54-7.9,7.9v26.26h26.26c1.39,0,2.67.39,3.81,1.02.28.16.56.31.82.5,1.98,1.44,3.28,3.75,3.28,6.39v26.26h26.26c4.37,0,7.9-3.54,7.9-7.9V7.9c0-4.37-3.54-7.9-7.9-7.9Z"
               />
             </svg>
-            <p>Palette-first tools for generating color scales and checking WCAG contrast.</p>
-          </div>
-          <div className="footer-links" aria-label="Footer links">
-            <a className="github-button footer-github-button" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
-              <span className="sr-only">View on GitHub</span>
-              <svg className="github-mark" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12 .5C5.73.5.75 5.6.75 12c0 5.1 3.29 9.43 7.86 10.96.58.12.79-.26.79-.58 0-.29-.01-1.06-.02-2.08-3.2.71-3.88-1.59-3.88-1.59-.53-1.37-1.3-1.73-1.3-1.73-1.06-.74.08-.73.08-.73 1.17.08 1.78 1.23 1.78 1.23 1.04 1.82 2.73 1.29 3.4.99.11-.77.41-1.29.74-1.59-2.55-.3-5.23-1.31-5.23-5.82 0-1.29.45-2.35 1.19-3.18-.12-.3-.52-1.52.11-3.16 0 0 .97-.32 3.18 1.21.92-.26 1.9-.38 2.88-.38.98 0 1.96.13 2.88.38 2.2-1.53 3.17-1.21 3.17-1.21.63 1.64.23 2.86.11 3.16.74.83 1.19 1.89 1.19 3.18 0 4.52-2.69 5.52-5.25 5.81.42.37.79 1.1.79 2.22 0 1.6-.02 2.9-.02 3.29 0 .32.21.7.8.58 4.56-1.54 7.85-5.86 7.85-10.96C23.25 5.6 18.27.5 12 .5Z"
-                />
-              </svg>
+            <p>{t.footer.copy}</p>
+            <a className="footer-github-link" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
+              <span>{t.footer.github}</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                open_in_new
+              </span>
             </a>
+          </div>
+          <div className="footer-links" aria-label={t.footer.links}>
+            <div className="language-segmented-control" aria-label={t.nav.languageLabel}>
+              <button
+                type="button"
+                className={`language-segment ${language === "en" ? "language-segment-active" : ""}`}
+                onClick={() => changeLanguage("en")}
+                aria-pressed={language === "en"}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                className={`language-segment ${language === "no" ? "language-segment-active" : ""}`}
+                onClick={() => changeLanguage("no")}
+                aria-pressed={language === "no"}
+              >
+                NO
+              </button>
+            </div>
           </div>
         </div>
       </footer>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getTranslation } from "../lib/i18n";
 
 const TOOL_GUIDES = [
   {
@@ -89,6 +90,91 @@ const TOOL_GUIDES = [
   },
 ];
 
+const TOOL_GUIDES_NO = [
+  {
+    id: "your-palette",
+    title: "Din palett",
+    summary: "Legg til opptil 10 farger, navngi dem, rediger dem og bruk dem som felles kilde for kontrastsjekk og skalagenerator.",
+    why: "Når du starter med den ekte paletten din, blir sjekkene nærmere faktisk designarbeid. I stedet for å teste tilfeldige par ser du om fargene du allerede planlegger å bruke kan støtte tekst, UI-tilstander og komponenter.",
+    steps: ["Legg til fargenavn og hex-verdi.", "Klikk en swatch for å velge den.", "Dobbeltklikk en swatch i manuell sjekk for å oppdatere motsatt felt."],
+    visual: "palette",
+  },
+  {
+    id: "selected-colors",
+    title: "Valgte farger",
+    summary: "Manuell sjekk bruker to valgte farger: én for tekst og én for bakgrunn. Resultatpanelet oppdateres når du endrer en av dem.",
+    why: "Et fargepar har retning. Mørk tekst på lys bakgrunn er ikke samme beslutning som lys tekst på mørk bakgrunn, derfor holder Blobb tekst og bakgrunn som separate felt.",
+    steps: [
+      "Bruk fanene Tekst og Bakgrunn for å velge aktivt felt.",
+      "Bytt de to fargene når du vil teste motsatt forhold.",
+      "Åpne Juster med kontrastkart for å finne tryggere alternativer.",
+    ],
+    visual: "selected",
+  },
+  {
+    id: "tune-color-map",
+    title: "Juster med kontrastkart",
+    summary: "Kontrastkartet hjelper deg å justere én valgt farge mens den sjekkes mot motsatt tekst- eller bakgrunnsfarge.",
+    why: "Små HSL-endringer kan gjøre et fargepar som feiler til et par som består. Kartet gjør de trygge områdene synlige, slik at du kan justere med hensikt.",
+    steps: [
+      "Åpne Juster med kontrastkart fra Tekstfarge eller Bakgrunnsfarge.",
+      "Kartet viser mulige farger: hue går fra venstre mot høyre, og lyshet går fra lyst øverst til mørkt nederst.",
+      "Haker betyr at kandidaten består 4.5:1 mot motsatt farge. Kryss betyr at den feiler for normal tekst.",
+      "Den lilla markeringen viser posisjonen som ligger nærmest den nåværende utkastfargen.",
+      "Klikk en celle eller juster HSL for å forhåndsvise et utkast. Ingenting endres i sjekken før du klikker Lagre fargeendring.",
+    ],
+    visual: "inspect",
+  },
+  {
+    id: "manual-compare",
+    title: "Manuell sjekk",
+    summary: "Bruk manuell sjekk når du vil undersøke ett konkret tekst- og bakgrunnspar i detalj.",
+    why: "Manuell sjekk passer best når du avgjør om ett bestemt fargepar kan brukes til brødtekst, stor tekst, ikoner, kanter, fokustilstander eller komponenter.",
+    steps: ["Velg to farger fra paletten.", "Les WCAG-forholdet og bestått/ikke bestått-sjekkene.", "Bruk forhåndsvisningen for å se hvordan paret oppfører seg i UI."],
+    visual: "manual",
+  },
+  {
+    id: "palette-compare",
+    title: "Palettsjekk",
+    summary: "Sjekk hele paletten mot seg selv for å se hvilke par som består for normal tekst.",
+    why: "Palettsjekk hjelper deg å finne gjenbrukbare kombinasjoner raskt. Det er nyttig når du lager token-regler, for eksempel hvilke farger som kan ligge på brandflater.",
+    steps: ["Velg en fokusfarge.", "Bytt mellom rutenett og liste.", "Slå på Vis kun godkjente par for å redusere støy."],
+    visual: "matrix",
+  },
+  {
+    id: "scale-generator",
+    title: "Skalagenerator",
+    summary: "Generer lysere og mørkere steg fra én valgt farge, og test skalaen uten å erstatte paletten.",
+    why: "En skala gir én farge flere jobber. Lysere og mørkere steg kan bli flater, kanter, hover, aktive tilstander og lesbare par, samtidig som uttrykket henger sammen.",
+    steps: [
+      "Velg en basefarge fra paletten.",
+      "Kopier et generert steg eller eksporter hele skalaen for utviklere.",
+      "Bruk Sammenlign skala for å sjekke de genererte fargene mot hverandre. I listevisning velger du aktiv skalafarge i raden over listen.",
+    ],
+    visual: "scale",
+  },
+  {
+    id: "export-scale",
+    title: "Eksporter skala",
+    summary: "Eksporter en generert skala som CSS-variabler, JS-objekt, JSON-tokens eller Adobe Swatch Exchange (ASE).",
+    why: "Når skalaen fungerer, gjør eksport den gjenbrukbar. Designere kan importere swatches, og utviklere kan lime tokens rett inn i prosjektet.",
+    steps: ["Åpne Eksporter skala.", "Velg CSS, JS eller JSON.", "Velg HEX, RGB eller HSL, og kopier snippet eller last ned ASE."],
+    visual: "code",
+  },
+  {
+    id: "export-palette",
+    title: "Eksporter palett",
+    summary: "Eksporter paletten som CSS-variabler, JSON-tokens eller Adobe Swatch Exchange (ASE).",
+    why: "Eksport gjør det enkelt å ta paletten inn i designverktøy og kodebaser, og å holde navngiving konsistent på tvers av team.",
+    steps: [
+      "Åpne Eksporter palett fra kontrastsjekk-headeren ved siden av Manuell sjekk / Palettsjekk.",
+      "På mobil åpner du tre-prikk-menyen i sammenligning for å finne Eksporter palett.",
+      "Velg CSS eller JSON, velg HEX/RGB/HSL, og kopier snippet eller last ned ASE.",
+    ],
+    visual: "code",
+  },
+];
+
 const FAQ_ITEMS = [
   {
     question: "What is Blobb for?",
@@ -135,6 +221,52 @@ const FAQ_ITEMS = [
   },
 ];
 
+const FAQ_ITEMS_NO = [
+  {
+    question: "Hva brukes Blobb til?",
+    answer:
+      "Blobb er et palettbasert kontrastverktøy for designere og utviklere. Legg inn fargene du allerede jobber med, og sjekk hvilke kombinasjoner som er lesbare og hva de trygt kan brukes til i et UI.",
+  },
+  {
+    question: "Hvorfor starte med en palett?",
+    answer:
+      "Ekte grensesnittarbeid starter ofte med brandfarger, design tokens eller en eksisterende stilguide. Når du tester paletten som et system, finner du nyttige kombinasjoner i stedet for å vurdere isolerte farger uten designkontekst.",
+  },
+  {
+    question: "Hva er WCAG, og hvorfor bør jeg bry meg?",
+    answer: (
+      <>
+        WCAG står for Web Content Accessibility Guidelines. Kontrastsjekker gjør grensesnitt enklere å bruke for flere, inkludert brukere med nedsatt syn,
+        fargesynsutfordringer, slitne øyne, sterkt sollys eller dårlige skjermer. Les mer i{" "}
+        <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">
+          den offisielle WCAG-oversikten
+        </a>
+        .
+      </>
+    ),
+  },
+  {
+    question: "Hvilket kontrastforhold bør jeg sikte mot?",
+    answer:
+      "For normal tekst bør du sikte mot minst 4.5:1. For stor tekst og ikke-tekstlige UI-elementer som ikoner, kontroller og fokusindikatorer bør du sikte mot minst 3:1. AAA-kravene for tekst er strengere.",
+  },
+  {
+    question: "Sjekker Blobb full WCAG-etterlevelse?",
+    answer:
+      "Nei. Blobb sjekker fargekontrastforhold og vanlige WCAG 2.2-terskler for kontrast. Full tilgjengelighet inkluderer også tastaturbruk, labels, fokusrekkefølge, semantikk, zoom, motion og støtte for hjelpemiddelteknologi.",
+  },
+  {
+    question: "Hva gjør skalageneratoren?",
+    answer:
+      "Den lager lysere og mørkere steg fra en valgt basefarge, slik at du kan beholde samme visuelle stil på tvers av UI-et. Stegene kan brukes til bakgrunner, kanter, hover, valgte tilstander og palettesting.",
+  },
+  {
+    question: "Hvorfor kan en fin farge feile kontrast?",
+    answer:
+      "Kontrast handler om forholdet mellom to farger, ikke om én farge ser bra ut alene. En myk farge kan fungere godt med mørk tekst, men feile med hvit tekst, eller motsatt.",
+  },
+];
+
 const GUIDE_GROUPS = [
   {
     title: "Palette setup",
@@ -150,17 +282,20 @@ const GUIDE_GROUPS = [
   },
 ];
 
-const GUIDE_BY_ID = TOOL_GUIDES.reduce((guides, guide) => {
-  guides[guide.id] = guide;
-  return guides;
-}, {});
-
-const INDEX_LINKS = {
-  ...GUIDE_BY_ID,
-  "common-questions": {
-    title: "Quick answers",
+const GUIDE_GROUPS_NO = [
+  {
+    title: "Palettoppsett",
+    links: ["your-palette", "selected-colors"],
   },
-};
+  {
+    title: "Kontrastsjekk",
+    links: ["manual-compare", "palette-compare", "tune-color-map"],
+  },
+  {
+    title: "Skalaer og eksport",
+    links: ["scale-generator", "export-scale", "export-palette"],
+  },
+];
 
 const INDEX_ORDER = [
   "common-questions",
@@ -179,15 +314,7 @@ const INDEX_NUMBER_BY_ID = INDEX_ORDER.reduce((numbers, id, index) => {
   return numbers;
 }, {});
 
-const INDEX_GROUPS = [
-  {
-    title: "COMMON QUESTIONS",
-    links: ["common-questions"],
-  },
-  ...GUIDE_GROUPS,
-];
-
-function ToolVisual({ type }) {
+function ToolVisual({ type, t }) {
   return (
     <div className={`tool-visual tool-visual-${type}`} aria-hidden="true">
       {type === "palette" && (
@@ -201,11 +328,11 @@ function ToolVisual({ type }) {
       {type === "selected" && (
         <>
           <div className="tool-visual-selected-card">
-            <span>Text</span>
+            <span>{t.common.text}</span>
             <strong>#1f2937</strong>
           </div>
           <div className="tool-visual-selected-card">
-            <span>Background</span>
+            <span>{t.common.background}</span>
             <strong>#ededf9</strong>
           </div>
         </>
@@ -215,7 +342,7 @@ function ToolVisual({ type }) {
           <div className="tool-visual-preview">Aa</div>
           <div className="tool-visual-meter">
             <strong>8.3:1</strong>
-            <span>Pass</span>
+            <span>{t.common.pass}</span>
           </div>
         </>
       )}
@@ -223,7 +350,7 @@ function ToolVisual({ type }) {
         <>
           <div className="tool-visual-inspect-preview">
             <strong>Aa</strong>
-            <span>Draft color</span>
+            <span>{t.edit.draft}</span>
           </div>
           <div className="tool-visual-inspect-map">
             {Array.from({ length: 36 }, (_, index) => (
@@ -277,8 +404,22 @@ function scrollToSection(sectionId) {
   target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function FaqPage() {
+function FaqPage({ language = "en" }) {
   const [openPanelId, setOpenPanelId] = useState("");
+  const t = getTranslation(language);
+  const toolGuides = language === "no" ? TOOL_GUIDES_NO : TOOL_GUIDES;
+  const faqItems = language === "no" ? FAQ_ITEMS_NO : FAQ_ITEMS;
+  const guideGroups = language === "no" ? GUIDE_GROUPS_NO : GUIDE_GROUPS;
+  const guideById = toolGuides.reduce((guides, guide) => {
+    guides[guide.id] = guide;
+    return guides;
+  }, {});
+  const indexLinks = {
+    ...guideById,
+    "common-questions": {
+      title: t.faq.quickAnswers,
+    },
+  };
 
   function togglePanel(panelId) {
     setOpenPanelId((currentPanelId) => (currentPanelId === panelId ? "" : panelId));
@@ -289,21 +430,19 @@ function FaqPage() {
       <header className="intro-section faq-intro-section">
         <div>
           <div>
-            <h1>Help & FAQ</h1>
-            <p>
-              Explore how the Blobb color tools work, how to use them together, and find quick answers to common questions about WCAG contrast and accessibility.
-            </p>
+            <h1>{t.faq.title}</h1>
+            <p>{t.faq.intro}</p>
           </div>
         </div>
       </header>
 
-      <section className="tool-guide-index" aria-label="Tool guide index">
+      <section className="tool-guide-index" aria-label={t.faq.indexTitle}>
         <div>
-          <p className="card-heading">Tool index</p>
-          <p>Jump to quick answers or follow the workflow from palette setup through scale export.</p>
+          <p className="card-heading">{t.faq.indexTitle}</p>
+          <p>{t.faq.indexCopy}</p>
         </div>
         <nav className="tool-guide-link-groups" aria-label="Tool guide links">
-          {INDEX_GROUPS.map((group) => (
+          {[{ title: t.faq.commonQuestions.toUpperCase(), links: ["common-questions"] }, ...guideGroups].map((group) => (
             <div className="tool-guide-link-group" key={group.title}>
               <p>{group.title}</p>
               <div className="tool-guide-links">
@@ -317,7 +456,7 @@ function FaqPage() {
                     }}
                   >
                     <span>{INDEX_NUMBER_BY_ID[guideId] ?? "00"}</span>
-                    <strong>{INDEX_LINKS[guideId].title}</strong>
+                    <strong>{indexLinks[guideId].title}</strong>
                   </a>
                 ))}
               </div>
@@ -329,19 +468,19 @@ function FaqPage() {
       <section className="tool-guide-section" id="common-questions" aria-labelledby="common-questions-title">
         <div className="tool-guide-section-heading">
           <p className="card-heading" id="common-questions-title">
-            Common questions
+            {t.faq.commonQuestions}
           </p>
         </div>
         <div className="faq-layout faq-layout-compact" aria-label="Frequently asked questions">
           <div className="faq-section-intro">
             <h3 className="card-heading tool-guide-card-heading">
               <span>{INDEX_NUMBER_BY_ID["common-questions"] ?? "01"}</span>
-              Quick answers
+              {t.faq.quickAnswers}
             </h3>
-            <p>Short answers about Blobb, WCAG, and contrast ratios.</p>
+            <p>{t.faq.shortAnswers}</p>
           </div>
           <div className="faq-list">
-            {FAQ_ITEMS.map((item) => {
+            {faqItems.map((item) => {
               const panelId = `faq-${item.question}`;
 
               return (
@@ -363,7 +502,7 @@ function FaqPage() {
       </section>
 
       <section className="tool-guide-list" aria-label="Tool guides">
-        {GUIDE_GROUPS.map((group) => (
+        {guideGroups.map((group) => (
           <section className="tool-guide-section" aria-labelledby={`${group.title.toLowerCase().replaceAll(" ", "-")}-title`} key={group.title}>
             <div className="tool-guide-section-heading">
               <p className="card-heading" id={`${group.title.toLowerCase().replaceAll(" ", "-")}-title`}>
@@ -372,7 +511,7 @@ function FaqPage() {
             </div>
             <div className="tool-guide-section-cards">
               {group.links.map((guideId, index) => {
-                const guide = GUIDE_BY_ID[guideId];
+                const guide = guideById[guideId];
                 const guideNumber = String(index + 1).padStart(2, "0");
 
                 return (
@@ -390,7 +529,7 @@ function FaqPage() {
                             togglePanel(`guide-${guide.id}`);
                           }}
                         >
-                          Why and how to use it
+                          {t.faq.whyHow}
                         </summary>
                         <p>{guide.why}</p>
                         <ul>
@@ -400,7 +539,7 @@ function FaqPage() {
                         </ul>
                       </details>
                     </div>
-                    <ToolVisual type={guide.visual} />
+                    <ToolVisual type={guide.visual} t={t} />
                   </article>
                 );
               })}
