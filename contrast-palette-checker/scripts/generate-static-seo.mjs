@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getContrast } from "../src/lib/colorUtils.js";
-import { buildContrastPairPath, SEO_CONTRAST_PAIRS, getMetaForRoute, PAGE_META } from "../src/lib/routeMeta.js";
+import { buildContrastPairPath, SEO_CONTRAST_PAIRS, getMetaForRoute, PAGE_META_BY_LANGUAGE } from "../src/lib/routeMeta.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -52,6 +52,20 @@ function setTagContent(html, selector, content) {
   return html.replace(patterns[selector], replacements[selector]);
 }
 
+function setHtmlLang(html, language) {
+  return html.replace(/<html\s+lang="[^"]*"/i, `<html lang="${escapeHtml(language)}"`);
+}
+
+function setAlternateLinks(html, alternates) {
+  return html
+    .replace(/<link\s+rel="alternate"\s+hreflang="en"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="en" href="${escapeHtml(alternates.en)}" />`)
+    .replace(/<link\s+rel="alternate"\s+hreflang="no"\s+href="[^"]*"\s*\/?>/i, `<link rel="alternate" hreflang="no" href="${escapeHtml(alternates.no)}" />`)
+    .replace(
+      /<link\s+rel="alternate"\s+hreflang="x-default"\s+href="[^"]*"\s*\/?>/i,
+      `<link rel="alternate" hreflang="x-default" href="${escapeHtml(alternates.en)}" />`,
+    );
+}
+
 function injectRootContent(html, content) {
   const rootElement = '<div id="root"></div>';
 
@@ -62,7 +76,23 @@ function injectRootContent(html, content) {
   return html.replace(rootElement, `<div id="root">${content}</div>`);
 }
 
-function getContrastStatus(contrast) {
+function getContrastStatus(contrast, language = "en") {
+  if (language === "no") {
+    if (contrast >= 7) {
+      return "består WCAG AAA for normal tekst";
+    }
+
+    if (contrast >= 4.5) {
+      return "består WCAG AA for normal tekst";
+    }
+
+    if (contrast >= 3) {
+      return "består WCAG AA for stor tekst og UI-grafikk, men feiler for normal tekst";
+    }
+
+    return "feiler vanlige WCAG-kontrastkrav for tekst";
+  }
+
   if (contrast >= 7) {
     return "passes WCAG AAA for normal text";
   }
@@ -78,9 +108,32 @@ function getContrastStatus(contrast) {
   return "fails common WCAG contrast thresholds for text";
 }
 
-function buildStaticSummary({ backgroundColor, textColor }) {
+function buildStaticSummary({ backgroundColor, textColor }, language = "en") {
   const contrast = getContrast(backgroundColor, textColor);
-  const status = getContrastStatus(contrast);
+  const status = getContrastStatus(contrast, language);
+
+  if (language === "no") {
+    return `
+      <main id="static-seo-content" style="font-family: system-ui, sans-serif; max-width: 760px; margin: 48px auto; padding: 0 24px; line-height: 1.6;">
+        <p style="font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #555;">Svar på fargekontrast</p>
+        <h1>Fungerer ${escapeHtml(textColor)} på ${escapeHtml(backgroundColor)}?</h1>
+        <p>
+          ${escapeHtml(textColor)} tekst på ${escapeHtml(backgroundColor)} bakgrunn har kontrastforhold
+          <strong>${contrast.toFixed(2)}:1</strong>, så den <strong>${escapeHtml(status)}</strong>.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; min-height: 160px;">
+          <div style="background: ${escapeHtml(backgroundColor)}; color: ${escapeHtml(textColor)}; padding: 24px;">
+            <strong>Eksempeltekst</strong>
+            <p>Lesbar UI-forhåndsvisning</p>
+          </div>
+          <div style="background: ${escapeHtml(textColor)}; color: ${escapeHtml(backgroundColor)}; padding: 24px;">
+            <strong>Omvendt par</strong>
+            <p>Sjekk begge retninger i Blobb.</p>
+          </div>
+        </div>
+        <p>Åpne denne siden med JavaScript aktivert for å redigere fargene, justere paret og sammenligne det mot en hel palett.</p>
+      </main>`;
+  }
 
   return `
     <main id="static-seo-content" style="font-family: system-ui, sans-serif; max-width: 760px; margin: 48px auto; padding: 0 24px; line-height: 1.6;">
@@ -104,11 +157,8 @@ function buildStaticSummary({ backgroundColor, textColor }) {
     </main>`;
 }
 
-function buildContrastPage(template, contrastPair) {
-  const meta = getMetaForRoute("contrast", contrastPair);
-  const staticSummary = buildStaticSummary(contrastPair);
-
-  let html = template;
+function applyMeta(template, meta, language) {
+  let html = setHtmlLang(template, language);
   html = setTagContent(html, "title", meta.title);
   html = setTagContent(html, "description", meta.description);
   html = setTagContent(html, "canonical", meta.canonical);
@@ -117,16 +167,36 @@ function buildContrastPage(template, contrastPair) {
   html = setTagContent(html, "ogDescription", meta.description);
   html = setTagContent(html, "twitterTitle", meta.title);
   html = setTagContent(html, "twitterDescription", meta.description);
+  html = setAlternateLinks(html, meta.alternates);
 
-  return injectRootContent(html, staticSummary);
+  return html;
+}
+
+function buildLandingPage(template, route, language) {
+  const meta = getMetaForRoute(route, null, language);
+
+  return applyMeta(template, meta, language);
+}
+
+function buildContrastPage(template, contrastPair, language) {
+  const meta = getMetaForRoute("contrast", contrastPair, language);
+  const staticSummary = buildStaticSummary(contrastPair, language);
+
+  return injectRootContent(applyMeta(template, meta, language), staticSummary);
 }
 
 function buildSitemap() {
   const urls = [
-    PAGE_META.contrast.canonical,
-    PAGE_META.scale.canonical,
-    PAGE_META.helpFaq.canonical,
-    ...SEO_CONTRAST_PAIRS.map(([backgroundColor, textColor]) => `${siteUrl}${buildContrastPairPath(backgroundColor, textColor)}`),
+    PAGE_META_BY_LANGUAGE.en.contrast.canonical,
+    PAGE_META_BY_LANGUAGE.en.scale.canonical,
+    PAGE_META_BY_LANGUAGE.en.helpFaq.canonical,
+    PAGE_META_BY_LANGUAGE.no.contrast.canonical,
+    PAGE_META_BY_LANGUAGE.no.scale.canonical,
+    PAGE_META_BY_LANGUAGE.no.helpFaq.canonical,
+    ...SEO_CONTRAST_PAIRS.flatMap(([backgroundColor, textColor]) => [
+      `${siteUrl}${buildContrastPairPath(backgroundColor, textColor, "en")}`,
+      `${siteUrl}${buildContrastPairPath(backgroundColor, textColor, "no")}`,
+    ]),
   ];
 
   const uniqueUrls = [...new Set(urls)];
@@ -140,10 +210,35 @@ async function main() {
 
   await Promise.all(
     [
+      ["scale", "en"],
+      ["helpFaq", "en"],
+      ["contrast", "no"],
+      ["scale", "no"],
+      ["helpFaq", "no"],
+    ].map(async ([route, language]) => {
+      const meta = getMetaForRoute(route, null, language);
+      const outputDir = path.join(distDir, meta.path.replace(/^\//, ""));
+      const html = buildLandingPage(template, route, language);
+
+      await mkdir(outputDir, { recursive: true });
+      await writeFile(path.join(outputDir, "index.html"), html);
+    }),
+  );
+
+  await Promise.all(
+    [
       ...SEO_CONTRAST_PAIRS.map(async ([backgroundColor, textColor]) => {
-        const routePath = buildContrastPairPath(backgroundColor, textColor);
+        const routePath = buildContrastPairPath(backgroundColor, textColor, "en");
         const outputDir = path.join(distDir, routePath.replace(/^\//, ""));
-        const html = buildContrastPage(template, { backgroundColor, textColor });
+        const html = buildContrastPage(template, { backgroundColor, textColor }, "en");
+
+        await mkdir(outputDir, { recursive: true });
+        await writeFile(path.join(outputDir, "index.html"), html);
+      }),
+      ...SEO_CONTRAST_PAIRS.map(async ([backgroundColor, textColor]) => {
+        const routePath = buildContrastPairPath(backgroundColor, textColor, "no");
+        const outputDir = path.join(distDir, routePath.replace(/^\//, ""));
+        const html = buildContrastPage(template, { backgroundColor, textColor }, "no");
 
         await mkdir(outputDir, { recursive: true });
         await writeFile(path.join(outputDir, "index.html"), html);
@@ -155,7 +250,7 @@ async function main() {
   await writeFile(path.join(distDir, "sitemap.xml"), sitemap);
   await writeFile(path.join(rootDir, "public", "sitemap.xml"), sitemap);
 
-  console.log(`Generated ${SEO_CONTRAST_PAIRS.length} static contrast pages and sitemap.xml`);
+  console.log(`Generated ${SEO_CONTRAST_PAIRS.length * 2} localized static contrast pages and sitemap.xml`);
 }
 
 main().catch((error) => {
