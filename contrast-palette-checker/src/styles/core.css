@@ -3379,13 +3379,20 @@
 }
 
 .footer-content {
-  display: flex;
+  display: grid;
   max-width: var(--section-width);
   margin: 0 auto;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+}
+
+.footer-top-group {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xl);
-  padding: var(--space-xl);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  padding-bottom: var(--space-lg);
 }
 
 .footer-brand {
@@ -3410,6 +3417,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-self: center;
   justify-content: flex-end;
   gap: var(--space-lg);
 }
@@ -3486,6 +3494,272 @@
   outline-offset: 3px;
 }
 
+.footer-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.footer-consent-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.consent-status-pill {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  padding: 0 9px;
+}
+
+.consent-status-accepted {
+  border-color: rgba(176, 235, 190, 0.45);
+  background-color: rgba(176, 235, 190, 0.14);
+  color: #d7f7df;
+}
+
+.consent-status-declined {
+  border-color: rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.consent-status-pending {
+  border-color: rgba(255, 239, 204, 0.44);
+  background-color: rgba(255, 239, 204, 0.12);
+  color: #ffefcc;
+}
+
+.footer-text-link {
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.68);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: var(--font-weight-bold);
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.footer-text-link.footer-privacy-link {
+  border-left: 1px solid rgba(255, 255, 255, 0.24);
+  padding-left: var(--space-sm);
+}
+
+.footer-text-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-text-link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 3px;
+}
+
+.cookie-consent-banner {
+  position: fixed;
+  right: var(--space-lg);
+  bottom: var(--space-lg);
+  left: var(--space-lg);
+  z-index: 10000001;
+  display: flex;
+  max-width: 920px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  border: 1px solid rgba(94, 90, 163, 0.34);
+  border-radius: var(--border-radius-secondary);
+  background-color: var(--surface-color);
+  box-shadow: var(--box-shadow);
+  color: var(--text-color);
+  padding: var(--space-md);
+}
+
+.cookie-consent-copy {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.cookie-consent-copy strong {
+  font-size: 0.95rem;
+}
+
+.cookie-consent-copy p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted-text-color);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.inline-text-link {
+  border: none;
+  background: none;
+  color: var(--purple);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inline-text-link:hover {
+  color: #3f3f75;
+}
+
+.inline-text-link:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.cookie-consent-actions,
+.privacy-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.cookie-action-button {
+  min-height: 38px;
+  border-radius: var(--border-radius-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: var(--font-weight-bold);
+  padding: 0 var(--space-md);
+}
+
+.cookie-action-primary {
+  border: 1px solid var(--purple);
+  background-color: var(--purple);
+  color: #ffffff;
+}
+
+.cookie-action-primary:hover {
+  background-color: #3f3f75;
+}
+
+.cookie-action-secondary {
+  border: 1px solid rgba(94, 90, 163, 0.48);
+  background-color: transparent;
+  color: var(--purple);
+}
+
+.cookie-action-secondary:hover {
+  border-color: var(--purple);
+  background-color: rgba(94, 90, 163, 0.08);
+  color: var(--purple);
+}
+
+.cookie-action-selected {
+  box-shadow: inset 0 0 0 2px rgba(24, 104, 58, 0.12);
+}
+
+.cookie-action-selected::before {
+  content: "check";
+  display: inline-block;
+  margin-right: 6px;
+  font-family: "Material Symbols Outlined";
+  font-size: 1rem;
+  font-weight: normal;
+  line-height: 1;
+  vertical-align: -2px;
+}
+
+.cookie-action-selected-accepted {
+  border: 1px solid #18683a;
+  background-color: #e6f7ea;
+  color: #124d2b;
+}
+
+.cookie-action-selected-declined {
+  border: 1px solid #6b7280;
+  background-color: #f3f4f6;
+  color: #374151;
+  box-shadow: inset 0 0 0 2px rgba(107, 114, 128, 0.12);
+}
+
+.cookie-action-button:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.privacy-overview-panel {
+  border: none;
+  background-color: transparent;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.privacy-overview-panel > div:first-child {
+  border: var(--border-default);
+  border-radius: var(--border-radius);
+  background-color: var(--surface-color);
+  padding: var(--padding-card);
+}
+
+@media (min-width: 980px) {
+  .privacy-overview-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.privacy-section-cards {
+  gap: var(--space-md);
+}
+
+@media (min-width: 980px) {
+  .privacy-section-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.privacy-info-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.privacy-info-card .tool-guide-card-heading {
+  margin: 0 0 var(--space-xs);
+}
+
+.privacy-choice-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-secondary);
+  background-color: var(--surface-color);
+  padding: var(--space-md);
+}
+
+.privacy-choice-panel > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.privacy-choice-panel span {
+  color: var(--muted-text-color);
+  font-size: 0.82rem;
+  font-weight: var(--font-weight-bold);
+}
+
 :root[data-theme="dark"] .navigation-container,
 :root[data-theme="dark"] .site-footer {
   background-color: #1c1a2f;
@@ -3501,6 +3775,71 @@
 
 :root[data-theme="dark"] .footer-github-link:hover {
   color: #f4f3fb;
+}
+
+:root[data-theme="dark"] .footer-text-link {
+  color: rgba(244, 243, 251, 0.62);
+}
+
+:root[data-theme="dark"] .footer-text-link:hover {
+  color: #f4f3fb;
+}
+
+:root[data-theme="dark"] .footer-privacy-link {
+  border-left-color: rgba(222, 221, 245, 0.22);
+}
+
+:root[data-theme="dark"] .cookie-consent-banner,
+:root[data-theme="dark"] .privacy-choice-panel {
+  border-color: rgba(222, 221, 245, 0.34);
+  background-color: #24223b;
+  color: #f4f3fb;
+}
+
+:root[data-theme="dark"] .cookie-action-secondary {
+  border-color: rgba(222, 221, 245, 0.36);
+  background-color: transparent;
+  color: #deddf5;
+}
+
+:root[data-theme="dark"] .cookie-action-secondary:hover {
+  border-color: #deddf5;
+  background-color: rgba(222, 221, 245, 0.1);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .cookie-action-primary {
+  border-color: #deddf5;
+  background-color: #deddf5;
+  color: #1c1a2f;
+}
+
+:root[data-theme="dark"] .cookie-action-primary:hover {
+  border-color: #f4f3fb;
+  background-color: #f4f3fb;
+  color: #1c1a2f;
+}
+
+:root[data-theme="dark"] .cookie-action-selected-accepted {
+  border-color: rgba(176, 235, 190, 0.58);
+  background-color: rgba(176, 235, 190, 0.14);
+  color: #d7f7df;
+  box-shadow: inset 0 0 0 2px rgba(176, 235, 190, 0.08);
+}
+
+:root[data-theme="dark"] .cookie-action-selected-declined {
+  border-color: rgba(222, 221, 245, 0.34);
+  background-color: rgba(222, 221, 245, 0.09);
+  color: #deddf5;
+  box-shadow: inset 0 0 0 2px rgba(222, 221, 245, 0.06);
+}
+
+:root[data-theme="dark"] .inline-text-link {
+  color: #deddf5;
+}
+
+:root[data-theme="dark"] .inline-text-link:hover {
+  color: #ffffff;
 }
 :root[data-theme="dark"] .language-segmented-control {
   border-color: rgba(222, 221, 245, 0.24);
@@ -3597,6 +3936,7 @@
 :root[data-theme="dark"] .scale-generator-panel,
 :root[data-theme="dark"] .scale-css-preview,
 :root[data-theme="dark"] .tool-guide-index,
+:root[data-theme="dark"] .privacy-overview-panel > div:first-child,
 :root[data-theme="dark"] .tool-guide-card,
 :root[data-theme="dark"] .faq-summary-panel,
 :root[data-theme="dark"] .faq-item,

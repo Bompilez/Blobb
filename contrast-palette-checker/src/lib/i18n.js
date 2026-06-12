@@ -22,6 +22,7 @@ export const translations = {
       add: "Add",
       cancel: "Cancel",
       save: "Save",
+      close: "Close",
       selected: "Selected",
       pass: "Pass",
       fail: "Fail",
@@ -166,6 +167,87 @@ export const translations = {
       copy: "Palette-first tools for generating color scales and checking WCAG contrast.",
       links: "Footer links",
       github: "View on GitHub",
+      privacy: "Privacy policy",
+      changeAnalyticsConsent: "Change analytics consent",
+    },
+    cookieConsent: {
+      title: "Can we use optional cookies?",
+      copyBeforePrivacy:
+        "If you accept optional cookies, we can see how the website is used. This helps us improve Blobb and understand which tools are useful. You can change your consent at any time from the footer, and read more in the ",
+      privacyLink: "privacy policy",
+      copyAfterPrivacy: ".",
+      accept: "Allow analytics",
+      decline: "Decline",
+      privacy: "Privacy policy",
+      accepted: "Analytics is allowed.",
+      declined: "Analytics is off.",
+      statusAccepted: "Analytics on",
+      statusDeclined: "Analytics off",
+      statusPending: "Not chosen",
+    },
+    privacy: {
+      title: "Privacy policy",
+      updated: "Last updated: June 12, 2026",
+      intro:
+        "This privacy policy explains how information is handled when you use Blobb to check contrast, build palettes, and generate color scales.",
+      sections: [
+        {
+          title: "Who is responsible?",
+          body:
+            "Blobb is maintained by the site owner. For privacy questions, contact the owner through the GitHub repository linked in the footer.",
+        },
+        {
+          title: "What information do we process?",
+          body:
+            "Blobb does not require an account and does not ask you to submit names, email addresses, or other contact information. The colors, palette names, theme, language, and consent choice you use in the tool are stored locally in your browser so the tool can remember your preferences.",
+        },
+        {
+          title: "Cookies and browser storage",
+          body:
+            "Blobb uses necessary browser storage to remember your palette, language, theme, and analytics consent choice. If you allow analytics, PostHog may also store a visitor ID, session/device information, and analytics settings in cookies and localStorage.",
+        },
+        {
+          title: "Analytics",
+          body:
+            "If you consent to analytics, Blobb uses PostHog and Vercel analytics tools to measure how the website is used, such as page views, language changes, contrast checks, color additions, export actions, and basic performance signals. We use this to understand which tools are useful and where the website can be improved.",
+        },
+        {
+          title: "Legal basis",
+          body:
+            "Necessary browser storage is used to provide the tool and remember choices you make. Optional analytics is only used if you have given consent. You can withdraw or change your consent at any time from the footer.",
+        },
+        {
+          title: "Hosting",
+          body:
+            "The site is hosted on Vercel. Vercel may process technical request data needed to deliver and protect the site, such as IP address, request information, device/browser information, and approximate location derived from IP address, such as city and country.",
+        },
+        {
+          title: "Who has access?",
+          body:
+            "Analytics data may be processed by PostHog and technical hosting data may be processed by Vercel. These services are used to operate and improve the website.",
+        },
+        {
+          title: "How long is information stored?",
+          body:
+            "Local browser data remains in your browser until you clear browser data or reset your choices in Blobb. Analytics data in PostHog is kept for up to 12 months.",
+        },
+        {
+          title: "Your choice",
+          body: "You can decline analytics and still use the tool. You can also change your analytics choice from the footer.",
+        },
+        {
+          title: "Your rights",
+          body:
+            "Where relevant, you can ask for access, correction, deletion, or withdrawal of consent. You can also complain to your local data protection authority if you believe personal data is handled incorrectly.",
+        },
+        {
+          title: "Changes",
+          body:
+            "This privacy policy may be updated if the website, analytics setup, or handling of information changes. The latest version will be available on this page.",
+        },
+      ],
+      currentChoice: "Current analytics choice",
+      contact: "Blobb does not store palettes or palette names on a server. Those choices are stored locally in your browser.",
     },
     faq: {
       title: "Help & FAQ",
@@ -194,6 +276,7 @@ export const translations = {
       add: "Legg til",
       cancel: "Avbryt",
       save: "Lagre",
+      close: "Lukk",
       selected: "Valgt",
       pass: "Godkjent",
       fail: "Feiler",
@@ -338,6 +421,87 @@ export const translations = {
       copy: "Verktøy for å generere fargeskalaer og teste WCAG-kontrast fra én palett.",
       links: "Footer-lenker",
       github: "Se på GitHub",
+      privacy: "Personvernerklæring",
+      changeAnalyticsConsent: "Endre analysesamtykke",
+    },
+    cookieConsent: {
+      title: "Får vi bruke valgfrie informasjonskapsler?",
+      copyBeforePrivacy:
+        "Om du aksepterer valgfrie informasjonskapsler, kan vi se hvordan nettsiden brukes. Det hjelper oss å forbedre Blobb og forstå hvilke verktøy som er nyttige. Du kan når som helst endre samtykket ditt via lenken i bunnmenyen, og lese mer i ",
+      privacyLink: "personvernerklæringen",
+      copyAfterPrivacy: ".",
+      accept: "Godta analyse",
+      decline: "Avslå",
+      privacy: "Personvernerklæring",
+      accepted: "Analyse er slått på.",
+      declined: "Analyse er slått av.",
+      statusAccepted: "Analyse på",
+      statusDeclined: "Analyse av",
+      statusPending: "Ikke valgt",
+    },
+    privacy: {
+      title: "Personvernerklæring",
+      updated: "Sist oppdatert: 12. juni 2026",
+      intro:
+        "Denne personvernerklæringen forklarer hvordan opplysninger håndteres når du bruker Blobb til å sjekke kontrast, bygge paletter og generere fargeskalaer.",
+      sections: [
+        {
+          title: "Hvem er ansvarlig?",
+          body:
+            "Blobb driftes av eieren av nettsiden. For spørsmål om personvern kan du kontakte eieren via GitHub-repoet som er lenket i bunnmenyen.",
+        },
+        {
+          title: "Hvilke opplysninger behandler vi?",
+          body:
+            "Blobb krever ikke konto og ber deg ikke sende inn navn, e-postadresse eller annen kontaktinformasjon. Farger, palettnavn, tema, språk og samtykkevalg du bruker i verktøyet lagres lokalt i nettleseren din slik at verktøyet husker innstillingene dine.",
+        },
+        {
+          title: "Informasjonskapsler og nettleserlagring",
+          body:
+            "Blobb bruker nødvendig nettleserlagring for å huske paletten din, språk, tema og valg for analysesamtykke. Dersom du godtar analyse, kan PostHog også lagre besøks-ID, økt-/enhetsinformasjon og analyseinnstillinger i cookies og localStorage.",
+        },
+        {
+          title: "Analyse",
+          body:
+            "Hvis du samtykker til analyse, bruker Blobb PostHog og Vercel sine analyseverktøy til å måle hvordan nettsiden brukes, for eksempel sidevisninger, språkbytte, kontrastsjekker, farger som legges til, eksporthandlinger og enkle ytelsessignaler. Vi bruker dette til å forstå hvilke verktøy som er nyttige og hvor nettsiden kan forbedres.",
+        },
+        {
+          title: "Behandlingsgrunnlag",
+          body:
+            "Nødvendig nettleserlagring brukes for å levere verktøyet og huske valg du selv gjør. Valgfri analyse brukes bare dersom du har gitt samtykke. Du kan når som helst trekke tilbake eller endre samtykket ditt fra bunnmenyen.",
+        },
+        {
+          title: "Hosting",
+          body:
+            "Siden hostes på Vercel. Vercel kan behandle tekniske forespørselsdata som trengs for å levere og beskytte siden, for eksempel IP-adresse, forespørselsinformasjon, enhets-/nettleserinformasjon og omtrentlig plassering utledet fra IP-adresse, som by og land.",
+        },
+        {
+          title: "Hvem har tilgang?",
+          body:
+            "Analysedata kan behandles av PostHog, og tekniske hostingdata kan behandles av Vercel. Disse tjenestene brukes for å drifte og forbedre nettsiden.",
+        },
+        {
+          title: "Hvor lenge lagres opplysningene?",
+          body:
+            "Lokal nettleserdata ligger i nettleseren din til du sletter nettleserdata eller tilbakestiller valgene dine i Blobb. Analysedata i PostHog lagres i opptil 12 måneder.",
+        },
+        {
+          title: "Ditt valg",
+          body: "Du kan avslå analyse og fortsatt bruke verktøyet. Du kan også endre analysevalget ditt fra footeren.",
+        },
+        {
+          title: "Dine rettigheter",
+          body:
+            "Der det er relevant, kan du be om innsyn, retting, sletting eller trekke tilbake samtykke. Du kan også klage til Datatilsynet dersom du mener at personopplysningene dine behandles feil.",
+        },
+        {
+          title: "Endringer",
+          body:
+            "Personvernerklæringen kan bli oppdatert dersom nettsiden, analyseoppsettet eller håndteringen av opplysninger endres. Den nyeste versjonen vil være tilgjengelig på denne siden.",
+        },
+      ],
+      currentChoice: "Gjeldende analysevalg",
+      contact: "Blobb lagrer ikke paletter eller palettnavn på en server. Slike valg lagres lokalt i nettleseren din.",
     },
     faq: {
       title: "Hjelp og FAQ",

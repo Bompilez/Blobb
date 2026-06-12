@@ -190,9 +190,11 @@ function buildSitemap() {
     PAGE_META_BY_LANGUAGE.en.contrast.canonical,
     PAGE_META_BY_LANGUAGE.en.scale.canonical,
     PAGE_META_BY_LANGUAGE.en.helpFaq.canonical,
+    PAGE_META_BY_LANGUAGE.en.privacy.canonical,
     PAGE_META_BY_LANGUAGE.no.contrast.canonical,
     PAGE_META_BY_LANGUAGE.no.scale.canonical,
     PAGE_META_BY_LANGUAGE.no.helpFaq.canonical,
+    PAGE_META_BY_LANGUAGE.no.privacy.canonical,
     ...SEO_CONTRAST_PAIRS.flatMap(([backgroundColor, textColor]) => [
       `${siteUrl}${buildContrastPairPath(backgroundColor, textColor, "en")}`,
       `${siteUrl}${buildContrastPairPath(backgroundColor, textColor, "no")}`,
@@ -212,9 +214,11 @@ async function main() {
     [
       ["scale", "en"],
       ["helpFaq", "en"],
+      ["privacy", "en"],
       ["contrast", "no"],
       ["scale", "no"],
       ["helpFaq", "no"],
+      ["privacy", "no"],
     ].map(async ([route, language]) => {
       const meta = getMetaForRoute(route, null, language);
       const outputDir = path.join(distDir, meta.path.replace(/^\//, ""));

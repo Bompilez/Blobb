@@ -191,9 +191,32 @@
     justify-content: flex-start;
   }
 
-  .footer-content {
+  .footer-top-group {
     align-items: flex-start;
     flex-direction: column;
+    width: 100%;
+  }
+
+  .footer-content {
+    align-items: stretch;
+  }
+
+  .cookie-consent-banner,
+  .privacy-choice-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cookie-consent-actions,
+  .privacy-choice-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .cookie-action-button {
+    width: 100%;
   }
 
   .scale-page-top-row {

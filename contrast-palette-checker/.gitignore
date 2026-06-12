@@ -3,3 +3,5 @@
 
 # Vercel (project-level metadata)
 .vercel
+.env
+.env.local

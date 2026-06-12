@@ -19,6 +19,12 @@ export const PAGE_META = {
     canonical: "https://blobb.net/Help&FAQ",
     path: "/Help&FAQ",
   },
+  privacy: {
+    title: "Privacy | Blobb Color Tools",
+    description: "How Blobb handles analytics, cookies, local storage, hosting data, and privacy choices.",
+    canonical: "https://blobb.net/privacy",
+    path: "/privacy",
+  },
 };
 
 export const PAGE_META_BY_LANGUAGE = {
@@ -42,6 +48,12 @@ export const PAGE_META_BY_LANGUAGE = {
       description: "Guider for paletter, kontrastsjekk, skalaer og eksport, pluss korte svar på vanlige spørsmål om WCAG-kontrast.",
       canonical: "https://blobb.net/no/Help&FAQ",
       path: "/no/Help&FAQ",
+    },
+    privacy: {
+      title: "Personvern | Blobb fargeverktøy",
+      description: "Slik håndterer Blobb analyse, cookies, lokal lagring, hostingdata og personvernvalg.",
+      canonical: "https://blobb.net/no/personvern",
+      path: "/no/personvern",
     },
   },
 };
@@ -341,6 +353,10 @@ export function getRouteFromPath() {
 
   if (pathname === PAGE_META.helpFaq.path || pathname === "/faq") {
     return "helpFaq";
+  }
+
+  if (pathname === PAGE_META.privacy.path || pathname === "/personvern") {
+    return "privacy";
   }
 
   return "contrast";

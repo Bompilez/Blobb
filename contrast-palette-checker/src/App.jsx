@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { track } from "@vercel/analytics";
+import { capturePostHogEvent, initPostHog, setPostHogConsent } from "./lib/analytics";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
 import { getTranslation, SUPPORTED_LANGUAGES } from "./lib/i18n";
 import { buildContrastPairPath, getMetaForRoute, getRouteStateFromPath, setMetaContent } from "./lib/routeMeta";
 import FaqPage from "./pages/FaqPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import "./styles/index.css";
 
 const DEFAULT_COLORS = [];
@@ -14,6 +16,7 @@ const DEFAULT_COLOR_NAMES = [];
 const PALETTE_STORAGE_KEY = "blobb.palette.v1";
 const THEME_STORAGE_KEY = "blobb.theme.v1";
 const LANGUAGE_STORAGE_KEY = "blobb.language.v1";
+const ANALYTICS_CONSENT_STORAGE_KEY = "blobb.analyticsConsent.v1";
 const COLOR_MAP_HUE_STEPS = 18;
 const COLOR_MAP_LIGHTNESS_STEPS = [94, 84, 74, 64, 54, 44, 34, 24, 14];
 
@@ -403,6 +406,20 @@ function loadLanguagePreference() {
   return "en";
 }
 
+function loadAnalyticsConsent() {
+  try {
+    const savedConsent = localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
+
+    if (savedConsent === "accepted" || savedConsent === "declined") {
+      return savedConsent;
+    }
+  } catch {
+    // ignore (storage disabled/private mode)
+  }
+
+  return "pending";
+}
+
 function getColorsFromRoutePair(routePair) {
   if (!routePair) {
     return [];
@@ -443,6 +460,7 @@ function App() {
   const [hasStoredPalette] = useState(initialHasStoredPalette);
   const [theme, setTheme] = useState(loadThemePreference);
   const [language, setLanguage] = useState(initialRouteState.language ?? loadLanguagePreference());
+  const [analyticsConsent, setAnalyticsConsent] = useState(loadAnalyticsConsent);
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -504,6 +522,13 @@ function App() {
   const scaleVarBase = slugifyVariableBase(activePaletteColorName || "blobb");
   const scaleStepTokens = [900, 800, 700, 600, 500, 400, 300, 200, 100];
   const t = getTranslation(language);
+  const canTrackAnalytics = analyticsConsent === "accepted";
+  const analyticsConsentLabel =
+    analyticsConsent === "accepted"
+      ? t.cookieConsent.statusAccepted
+      : analyticsConsent === "declined"
+        ? t.cookieConsent.statusDeclined
+        : t.cookieConsent.statusPending;
   const paletteTokens = uniqueTokens(colors.map((_, index) => slugifyVariableBase(getColorName(index))));
   const paletteDeveloperSnippet = buildPaletteDeveloperSnippet(colors, paletteTokens, "palette", paletteCssFormat, paletteSnippetType);
   const scaleCompareActiveColor = scaleColors.some((item) => item.hex === activeScaleCompareColor) ? activeScaleCompareColor : scaleBaseColor;
@@ -534,6 +559,22 @@ function App() {
         Math.abs(lightness - adjustingHsl.l) < Math.abs(closest - adjustingHsl.l) ? lightness : closest,
       )
     : null;
+
+  function trackProductEvent(eventName, properties = {}) {
+    if (!canTrackAnalytics) {
+      return;
+    }
+
+    const enrichedProperties = {
+      route,
+      language,
+      paletteSize: colors.length,
+      ...properties,
+    };
+
+    track(eventName, enrichedProperties);
+    capturePostHogEvent(eventName, enrichedProperties);
+  }
 
   function applyContrastPairRoute(contrastPair) {
     const routeColors = getColorsFromRoutePair(contrastPair);
@@ -573,8 +614,10 @@ function App() {
     }
 
     const nextPaletteSize = colors.length + missingRoutePairColors.length;
-    if (colors.length < 2 && nextPaletteSize >= 2) {
-      track("Palette Created", { paletteSize: nextPaletteSize, source: "contrast-route" });
+    if (canTrackAnalytics && colors.length < 2 && nextPaletteSize >= 2) {
+      const eventProperties = { route, language, paletteSize: nextPaletteSize, source: "contrast-route" };
+      track("Palette Created", eventProperties);
+      capturePostHogEvent("Palette Created", eventProperties);
     }
 
     setColors((currentColors) => [...currentColors, ...missingRoutePairColors]);
@@ -582,11 +625,33 @@ function App() {
   }
 
   useEffect(() => {
+    const consentAccepted = analyticsConsent === "accepted";
+
+    setPostHogConsent(consentAccepted);
+
+    try {
+      if (analyticsConsent === "pending") {
+        localStorage.removeItem(ANALYTICS_CONSENT_STORAGE_KEY);
+      } else {
+        localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, analyticsConsent);
+      }
+    } catch {
+      // ignore (storage disabled/quota/private mode)
+    }
+
+    if (!consentAccepted) {
+      return;
+    }
+
+    initPostHog().catch(() => {});
+  }, [analyticsConsent]);
+
+  useEffect(() => {
     savePaletteToStorage(colors, colorNames);
   }, [colors, colorNames]);
 
   useEffect(() => {
-    if (route !== "contrast" || selectedColors.length !== 2 || !selectedColors.every(isValidHex)) {
+    if (!canTrackAnalytics || route !== "contrast" || selectedColors.length !== 2 || !selectedColors.every(isValidHex)) {
       return;
     }
 
@@ -597,21 +662,28 @@ function App() {
 
     trackedContrastPairsRef.current.add(pairKey);
     const contrast = getContrast(selectedColors[0], selectedColors[1]);
-    track("Contrast Checked", {
+    const eventProperties = {
+      route,
+      language,
       mode: compareMode,
       paletteSize: colors.length,
       passesAA: contrast >= 4.5,
-    });
-  }, [colors.length, compareMode, route, selectedColors]);
+    };
+
+    track("Contrast Checked", eventProperties);
+    capturePostHogEvent("Contrast Checked", eventProperties);
+  }, [canTrackAnalytics, colors.length, compareMode, language, route, selectedColors]);
 
   useEffect(() => {
-    if (route !== "scale" || !canGenerateScale || trackedScaleColorsRef.current.has(scaleBaseColor)) {
+    if (!canTrackAnalytics || route !== "scale" || !canGenerateScale || trackedScaleColorsRef.current.has(scaleBaseColor)) {
       return;
     }
 
     trackedScaleColorsRef.current.add(scaleBaseColor);
-    track("Scale Generated", { paletteSize: colors.length, steps: scaleColors.length });
-  }, [canGenerateScale, colors.length, route, scaleBaseColor, scaleColors.length]);
+    const eventProperties = { route, language, paletteSize: colors.length, steps: scaleColors.length };
+    track("Scale Generated", eventProperties);
+    capturePostHogEvent("Scale Generated", eventProperties);
+  }, [canTrackAnalytics, canGenerateScale, colors.length, language, route, scaleBaseColor, scaleColors.length]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -704,6 +776,20 @@ function App() {
       alternateDefault.setAttribute("href", meta.alternates.en);
     }
   }, [language, route, routeContrastPair]);
+
+  useEffect(() => {
+    if (!canTrackAnalytics) {
+      return;
+    }
+
+    capturePostHogEvent("$pageview", {
+      route,
+      language,
+      path: window.location.pathname,
+      hasContrastPair: Boolean(routeContrastPair),
+      paletteSize: colors.length,
+    });
+  }, [canTrackAnalytics, colors.length, language, route, routeContrastPair]);
 
   useEffect(() => {
     if (
@@ -903,6 +989,10 @@ function App() {
   }
 
   function changeCompareMode(mode) {
+    if (mode !== compareMode) {
+      trackProductEvent("Compare Mode Changed", { mode });
+    }
+
     setCompareMode(mode);
 
     if (!canComparePalette) {
@@ -942,9 +1032,14 @@ function App() {
     }
 
     const nextColors = [...colors, input];
+    trackProductEvent("Color Added", {
+      colorIndex: nextColors.length,
+      paletteSize: nextColors.length,
+      hasName: Boolean(colorNameInput.trim()),
+    });
 
     if (colors.length < 2 && nextColors.length >= 2) {
-      track("Palette Created", { paletteSize: nextColors.length, source: "manual" });
+      trackProductEvent("Palette Created", { paletteSize: nextColors.length, source: "manual" });
     }
 
     setColors(nextColors);
@@ -1109,6 +1204,11 @@ function App() {
     try {
       await navigator.clipboard.writeText(scaleDeveloperSnippet);
       setCopiedColor("scale-css");
+      trackProductEvent("Scale Snippet Copied", {
+        snippetType: scaleSnippetType,
+        colorFormat: scaleCssFormat,
+        steps: scaleColors.length,
+      });
     } catch {
       setCopiedColor("");
       return;
@@ -1140,6 +1240,9 @@ function App() {
     link.remove();
     URL.revokeObjectURL(url);
     setCopiedColor("scale-ase");
+    trackProductEvent("Scale ASE Downloaded", {
+      steps: scaleColors.length,
+    });
 
     if (copiedColorTimeoutRef.current) {
       clearTimeout(copiedColorTimeoutRef.current);
@@ -1159,6 +1262,10 @@ function App() {
     try {
       await navigator.clipboard.writeText(paletteDeveloperSnippet);
       setCopiedColor("palette-snippet");
+      trackProductEvent("Palette Snippet Copied", {
+        snippetType: paletteSnippetType,
+        colorFormat: paletteCssFormat,
+      });
     } catch {
       setCopiedColor("");
       return;
@@ -1191,6 +1298,7 @@ function App() {
     link.remove();
     URL.revokeObjectURL(url);
     setCopiedColor("palette-ase");
+    trackProductEvent("Palette ASE Downloaded");
 
     if (copiedColorTimeoutRef.current) {
       clearTimeout(copiedColorTimeoutRef.current);
@@ -1223,6 +1331,21 @@ function App() {
   }
 
   function changeLanguage(nextLanguage) {
+    if (canTrackAnalytics && nextLanguage !== language) {
+      track("Language Changed", {
+        route,
+        from: language,
+        to: nextLanguage,
+        paletteSize: colors.length,
+      });
+      capturePostHogEvent("Language Changed", {
+        route,
+        from: language,
+        to: nextLanguage,
+        paletteSize: colors.length,
+      });
+    }
+
     const nextMeta = getMetaForRoute(route, routeContrastPair, nextLanguage);
     const nextPath = `${nextMeta.path}${window.location.hash}`;
 
@@ -1231,6 +1354,34 @@ function App() {
     }
 
     setLanguage(nextLanguage);
+  }
+
+  function changeAnalyticsConsent(nextConsent) {
+    setAnalyticsConsent(nextConsent);
+
+    if (nextConsent === "accepted") {
+      initPostHog()
+        .then(() => {
+          setPostHogConsent(true);
+          capturePostHogEvent("Analytics Consent Accepted", {
+            route,
+            language,
+            paletteSize: colors.length,
+          });
+        })
+        .catch(() => {});
+    } else {
+      setPostHogConsent(false);
+    }
+  }
+
+  function resetAnalyticsConsentPrompt() {
+    setAnalyticsConsent("pending");
+  }
+
+  function openPaletteExportModal(source) {
+    trackProductEvent("Palette Export Opened", { source });
+    setShowPaletteExportModal(true);
   }
 
   function renderInfoButton(panel) {
@@ -1308,7 +1459,7 @@ function App() {
           <button
             type="button"
             className="compare-mode-option compare-mode-export-option compare-mode-export-desktop"
-            onClick={() => setShowPaletteExportModal(true)}
+            onClick={() => openPaletteExportModal("desktop")}
             disabled={!colors.length}
           >
             <span className="material-symbols-outlined" aria-hidden="true">
@@ -1339,7 +1490,7 @@ function App() {
                 className="compare-more-menu-item"
                 onClick={() => {
                   setShowCompareMoreMenu(false);
-                  setShowPaletteExportModal(true);
+                  openPaletteExportModal("mobile-menu");
                 }}
                 disabled={!colors.length}
               >
@@ -2449,8 +2600,10 @@ function App() {
                 </section>
               </div>
             </div>
-          ) : (
+          ) : route === "helpFaq" ? (
             <FaqPage language={language} />
+          ) : (
+            <PrivacyPage analyticsConsent={analyticsConsent} language={language} onConsentChange={changeAnalyticsConsent} />
           )}
         </div>
       </section>
@@ -2801,8 +2954,9 @@ function App() {
       )}
       <footer className="site-footer">
         <div className="footer-content">
-          <div className="footer-brand">
-            <svg className="footer-logo-svg" role="img" aria-label="Blobb" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 556.85 102.64">
+          <div className="footer-top-group">
+            <div className="footer-brand">
+              <svg className="footer-logo-svg" role="img" aria-label="Blobb" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 556.85 102.64">
               <g>
                 <path
                   fill="#fff"
@@ -2833,39 +2987,77 @@ function App() {
                 fill="#aaa"
                 d="M94.6,0h-52.53c-4.37,0-7.9,3.54-7.9,7.9v26.26h26.26c1.39,0,2.67.39,3.81,1.02.28.16.56.31.82.5,1.98,1.44,3.28,3.75,3.28,6.39v26.26h26.26c4.37,0,7.9-3.54,7.9-7.9V7.9c0-4.37-3.54-7.9-7.9-7.9Z"
               />
-            </svg>
-            <p>{t.footer.copy}</p>
-            <a className="footer-github-link" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
-              <span>{t.footer.github}</span>
-              <span className="material-symbols-outlined" aria-hidden="true">
-                open_in_new
-              </span>
-            </a>
+              </svg>
+              <p>{t.footer.copy}</p>
+              <a className="footer-github-link" href="https://github.com/Bompilez/Blobb" target="_blank" rel="noopener noreferrer">
+                <span>{t.footer.github}</span>
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  open_in_new
+                </span>
+              </a>
+            </div>
+            <div className="footer-links" aria-label={t.footer.links}>
+              <div className="language-segmented-control" aria-label={t.nav.languageLabel}>
+                <button
+                  type="button"
+                  className={`language-segment ${language === "en" ? "language-segment-active" : ""}`}
+                  onClick={() => changeLanguage("en")}
+                  aria-pressed={language === "en"}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  className={`language-segment ${language === "no" ? "language-segment-active" : ""}`}
+                  onClick={() => changeLanguage("no")}
+                  aria-pressed={language === "no"}
+                >
+                  NO
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="footer-links" aria-label={t.footer.links}>
-            <div className="language-segmented-control" aria-label={t.nav.languageLabel}>
-              <button
-                type="button"
-                className={`language-segment ${language === "en" ? "language-segment-active" : ""}`}
-                onClick={() => changeLanguage("en")}
-                aria-pressed={language === "en"}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                className={`language-segment ${language === "no" ? "language-segment-active" : ""}`}
-                onClick={() => changeLanguage("no")}
-                aria-pressed={language === "no"}
-              >
-                NO
+          <div className="footer-legal-links">
+            <div className="footer-consent-status">
+              <span className={`consent-status-pill consent-status-${analyticsConsent}`}>{analyticsConsentLabel}</span>
+              <button type="button" className="footer-text-link" onClick={resetAnalyticsConsentPrompt}>
+                {t.footer.changeAnalyticsConsent}
               </button>
             </div>
+            <button type="button" className="footer-text-link footer-privacy-link" onClick={() => changeRoute("privacy")}>
+              {t.footer.privacy}
+            </button>
           </div>
         </div>
       </footer>
-      <Analytics />
-      <SpeedInsights />
+      {analyticsConsent === "pending" && (
+        <div className="cookie-consent-banner" role="dialog" aria-live="polite" aria-label={t.cookieConsent.title}>
+          <div className="cookie-consent-copy">
+            <strong>{t.cookieConsent.title}</strong>
+            <p>
+              {t.cookieConsent.copyBeforePrivacy}
+              <button type="button" className="inline-text-link" onClick={() => changeRoute("privacy")}>
+                {t.cookieConsent.privacyLink}
+              </button>
+              {t.cookieConsent.copyAfterPrivacy}
+            </p>
+          </div>
+          <div className="cookie-consent-actions">
+            <button type="button" className="cookie-action-button cookie-action-secondary" onClick={() => changeAnalyticsConsent("declined")}>
+              {t.cookieConsent.decline}
+            </button>
+            <button type="button" className="cookie-action-button cookie-action-primary" onClick={() => changeAnalyticsConsent("accepted")}>
+              {t.cookieConsent.accept}
+            </button>
+          </div>
+        </div>
+      )}
+      {canTrackAnalytics && (
+        <>
+          <Analytics />
+          <SpeedInsights />
+        </>
+      )}
     </>
   );
 }
