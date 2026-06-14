@@ -1,4 +1,4 @@
-const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+const posthogKey = import.meta.env.VITE_POSTHOG_KEY || "phc_nhwX9GgdedGoixZWZwGghUZSLLjYCkbJZ22SUqLKNftD";
 const posthogHost = import.meta.env.VITE_POSTHOG_HOST || "https://eu.i.posthog.com";
 
 let posthogClient = null;
