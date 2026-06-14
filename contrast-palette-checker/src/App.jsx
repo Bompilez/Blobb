@@ -461,6 +461,7 @@ function App() {
   const [theme, setTheme] = useState(loadThemePreference);
   const [language, setLanguage] = useState(initialRouteState.language ?? loadLanguagePreference());
   const [analyticsConsent, setAnalyticsConsent] = useState(loadAnalyticsConsent);
+  const [showConsentPrompt, setShowConsentPrompt] = useState(() => loadAnalyticsConsent() === "pending");
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
   const [compareMode, setCompareMode] = useState("manual");
@@ -1358,6 +1359,7 @@ function App() {
 
   function changeAnalyticsConsent(nextConsent) {
     setAnalyticsConsent(nextConsent);
+    setShowConsentPrompt(false);
 
     if (nextConsent === "accepted") {
       initPostHog()
@@ -1376,7 +1378,7 @@ function App() {
   }
 
   function resetAnalyticsConsentPrompt() {
-    setAnalyticsConsent("pending");
+    setShowConsentPrompt(true);
   }
 
   function openPaletteExportModal(source) {
@@ -3030,7 +3032,7 @@ function App() {
           </div>
         </div>
       </footer>
-      {analyticsConsent === "pending" && (
+      {showConsentPrompt && (
         <div className="cookie-consent-banner" role="dialog" aria-live="polite" aria-label={t.cookieConsent.title}>
           <div className="cookie-consent-copy">
             <strong>{t.cookieConsent.title}</strong>
@@ -3043,10 +3045,24 @@ function App() {
             </p>
           </div>
           <div className="cookie-consent-actions">
-            <button type="button" className="cookie-action-button cookie-action-secondary" onClick={() => changeAnalyticsConsent("declined")}>
+            <button
+              type="button"
+              className={`cookie-action-button ${
+                analyticsConsent === "declined" ? "cookie-action-selected cookie-action-selected-declined" : "cookie-action-secondary"
+              }`}
+              aria-pressed={analyticsConsent === "declined"}
+              onClick={() => changeAnalyticsConsent("declined")}
+            >
               {t.cookieConsent.decline}
             </button>
-            <button type="button" className="cookie-action-button cookie-action-primary" onClick={() => changeAnalyticsConsent("accepted")}>
+            <button
+              type="button"
+              className={`cookie-action-button ${
+                analyticsConsent === "accepted" ? "cookie-action-selected cookie-action-selected-accepted" : "cookie-action-primary"
+              }`}
+              aria-pressed={analyticsConsent === "accepted"}
+              onClick={() => changeAnalyticsConsent("accepted")}
+            >
               {t.cookieConsent.accept}
             </button>
           </div>
