@@ -991,7 +991,7 @@ function App() {
 
   function changeCompareMode(mode) {
     if (mode !== compareMode) {
-      trackProductEvent("Compare Mode Changed", { mode });
+      trackProductEvent(mode === "palette" ? "Palette Compare Used" : "Manual Compare Used", { previousMode: compareMode });
     }
 
     setCompareMode(mode);
@@ -1126,6 +1126,11 @@ function App() {
       return;
     }
 
+    trackProductEvent("Contrast Map Opened", {
+      role: selectedIndex === 0 ? "background" : "text",
+      contrast: selectedContrast?.contrast ? Number(selectedContrast.contrast.toFixed(2)) : null,
+      passesAA: selectedContrast?.passesSmallAA ?? false,
+    });
     setActiveSelectedIndex(selectedIndex);
     setAdjustingDraftColor(selectedColors[selectedIndex]);
     setAdjustingSelectedIndex(selectedIndex);
@@ -1152,6 +1157,16 @@ function App() {
       return;
     }
 
+    const previousContrast = isValidHex(adjustingOriginalColor) && isValidHex(adjustingOppositeColor) ? getContrast(adjustingOriginalColor, adjustingOppositeColor) : null;
+    const nextContrast = isValidHex(adjustingColor) && isValidHex(adjustingOppositeColor) ? getContrast(adjustingColor, adjustingOppositeColor) : null;
+
+    trackProductEvent("Color Adjusted", {
+      role: adjustingSelectedIndex === 0 ? "background" : "text",
+      previousPassesAA: previousContrast !== null ? previousContrast >= 4.5 : null,
+      nextPassesAA: nextContrast !== null ? nextContrast >= 4.5 : null,
+      previousContrast: previousContrast !== null ? Number(previousContrast.toFixed(2)) : null,
+      nextContrast: nextContrast !== null ? Number(nextContrast.toFixed(2)) : null,
+    });
     updateSelectedColor(adjustingSelectedIndex, adjustingColor);
     closeColorAdjuster();
   }
@@ -1314,9 +1329,19 @@ function App() {
   function changeRoute(nextRoute, hash = "") {
     const nextMeta = getMetaForRoute(nextRoute, null, language);
     const nextPath = `${nextMeta.path}${hash}`;
+    const routeChanged = route !== nextRoute;
 
     if (`${window.location.pathname}${window.location.hash}` !== nextPath) {
       window.history.pushState({}, "", nextPath);
+    }
+
+    if (routeChanged || hash) {
+      const eventName = nextRoute === "helpFaq" ? "Help Opened" : nextRoute === "privacy" ? "Privacy Opened" : "Tool Opened";
+      trackProductEvent(eventName, {
+        fromRoute: route,
+        toRoute: nextRoute,
+        hash: hash || undefined,
+      });
     }
 
     setRoute(nextRoute);
@@ -1381,9 +1406,29 @@ function App() {
     setShowConsentPrompt(true);
   }
 
+  function changeTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    trackProductEvent("Theme Changed", { from: theme, to: nextTheme });
+    setTheme(nextTheme);
+  }
+
   function openPaletteExportModal(source) {
     trackProductEvent("Palette Export Opened", { source });
     setShowPaletteExportModal(true);
+  }
+
+  function toggleScalePanel(panel) {
+    setActiveScalePanel((current) => {
+      const nextPanel = current === panel ? "" : panel;
+
+      if (nextPanel) {
+        trackProductEvent(panel === "compare" ? "Scale Compare Used" : "Scale Export Opened", {
+          steps: scaleColors.length,
+        });
+      }
+
+      return nextPanel;
+    });
   }
 
   function renderInfoButton(panel) {
@@ -1561,7 +1606,7 @@ function App() {
             <button
               type="button"
               className="theme-toggle-button"
-              onClick={() => setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
+              onClick={changeTheme}
               aria-label={t.nav.theme(theme)}
               aria-pressed={theme === "dark"}
             >
@@ -2354,7 +2399,7 @@ function App() {
                           role="tab"
                           aria-selected={activeScalePanel === "compare"}
                           className={`scale-panel-switch-button ${activeScalePanel === "compare" ? "scale-panel-switch-button-active" : ""}`}
-                          onClick={() => setActiveScalePanel((current) => (current === "compare" ? "" : "compare"))}
+                          onClick={() => toggleScalePanel("compare")}
                         >
                           <span className="material-symbols-outlined" aria-hidden="true">
                             contrast
@@ -2366,7 +2411,7 @@ function App() {
                           role="tab"
                           aria-selected={activeScalePanel === "export"}
                           className={`scale-panel-switch-button ${activeScalePanel === "export" ? "scale-panel-switch-button-active" : ""}`}
-                          onClick={() => setActiveScalePanel((current) => (current === "export" ? "" : "export"))}
+                          onClick={() => toggleScalePanel("export")}
                         >
                           <span className="material-symbols-outlined" aria-hidden="true">
                             code
