@@ -21,6 +21,20 @@ Palette-first tools for checking WCAG contrast, generating light-to-dark color s
 - Vite
 - CSS
 - Vercel Analytics + Speed Insights
+- PostHog
+- Google Analytics 4 / Google Ads via gtag, when `VITE_GA_MEASUREMENT_ID` is set
+
+## Analytics events
+
+After analytics consent, Blobb sends product events to Vercel Analytics, PostHog, and GA4:
+
+- `palette_created`
+- `contrast_checked`
+- `scale_generated`
+- `export_clicked`
+- `faq_visited`
+
+Use GA4 Admin -> Events to mark these as key events, then import the relevant key events into Google Ads after linking Google Ads and GA4.
 
 ## Getting Started
 

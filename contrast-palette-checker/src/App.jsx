@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { track } from "@vercel/analytics";
-import { capturePostHogEvent, initPostHog, setPostHogConsent } from "./lib/analytics";
+import {
+  captureGoogleAnalyticsEvent,
+  captureGoogleAnalyticsPageView,
+  capturePostHogEvent,
+  initGoogleAnalytics,
+  initPostHog,
+  setGoogleAnalyticsConsent,
+  setPostHogConsent,
+} from "./lib/analytics";
 import { getContrast, getReadableTextColor, hexToHSL, hexToRGB, hslToHex, isValidHex, normalizeHex, rgbToHex } from "./lib/colorUtils";
 import { getTranslation, SUPPORTED_LANGUAGES } from "./lib/i18n";
 import { buildContrastPairPath, getMetaForRoute, getRouteStateFromPath, setMetaContent } from "./lib/routeMeta";
@@ -461,6 +469,7 @@ function App() {
   const [theme, setTheme] = useState(loadThemePreference);
   const [language, setLanguage] = useState(initialRouteState.language ?? loadLanguagePreference());
   const [analyticsConsent, setAnalyticsConsent] = useState(loadAnalyticsConsent);
+  const [googleAnalyticsInitialized, setGoogleAnalyticsInitialized] = useState(false);
   const [showConsentPrompt, setShowConsentPrompt] = useState(() => loadAnalyticsConsent() === "pending");
   const [colorInput, setColorInput] = useState("");
   const [colorNameInput, setColorNameInput] = useState("");
@@ -501,6 +510,7 @@ function App() {
   const copiedColorTimeoutRef = useRef(null);
   const trackedContrastPairsRef = useRef(new Set());
   const trackedScaleColorsRef = useRef(new Set());
+  const trackedFaqVisitsRef = useRef(new Set());
 
   let selectedContrast = null;
   const activePaletteColor = selectedColors[0];
@@ -575,6 +585,7 @@ function App() {
 
     track(eventName, enrichedProperties);
     capturePostHogEvent(eventName, enrichedProperties);
+    captureGoogleAnalyticsEvent(eventName, enrichedProperties);
   }
 
   function applyContrastPairRoute(contrastPair) {
@@ -616,9 +627,7 @@ function App() {
 
     const nextPaletteSize = colors.length + missingRoutePairColors.length;
     if (canTrackAnalytics && colors.length < 2 && nextPaletteSize >= 2) {
-      const eventProperties = { route, language, paletteSize: nextPaletteSize, source: "contrast-route" };
-      track("Palette Created", eventProperties);
-      capturePostHogEvent("Palette Created", eventProperties);
+      trackProductEvent("Palette Created", { paletteSize: nextPaletteSize, source: "contrast-route" });
     }
 
     setColors((currentColors) => [...currentColors, ...missingRoutePairColors]);
@@ -629,6 +638,7 @@ function App() {
     const consentAccepted = analyticsConsent === "accepted";
 
     setPostHogConsent(consentAccepted);
+    setGoogleAnalyticsConsent(consentAccepted);
 
     try {
       if (analyticsConsent === "pending") {
@@ -645,6 +655,9 @@ function App() {
     }
 
     initPostHog().catch(() => {});
+    initGoogleAnalytics()
+      .then(() => setGoogleAnalyticsInitialized(true))
+      .catch(() => {});
   }, [analyticsConsent]);
 
   useEffect(() => {
@@ -673,6 +686,7 @@ function App() {
 
     track("Contrast Checked", eventProperties);
     capturePostHogEvent("Contrast Checked", eventProperties);
+    captureGoogleAnalyticsEvent("Contrast Checked", eventProperties);
   }, [canTrackAnalytics, colors.length, compareMode, language, route, selectedColors]);
 
   useEffect(() => {
@@ -684,6 +698,7 @@ function App() {
     const eventProperties = { route, language, paletteSize: colors.length, steps: scaleColors.length };
     track("Scale Generated", eventProperties);
     capturePostHogEvent("Scale Generated", eventProperties);
+    captureGoogleAnalyticsEvent("Scale Generated", eventProperties);
   }, [canTrackAnalytics, canGenerateScale, colors.length, language, route, scaleBaseColor, scaleColors.length]);
 
   useEffect(() => {
@@ -790,7 +805,39 @@ function App() {
       hasContrastPair: Boolean(routeContrastPair),
       paletteSize: colors.length,
     });
-  }, [canTrackAnalytics, colors.length, language, route, routeContrastPair]);
+    if (googleAnalyticsInitialized) {
+      captureGoogleAnalyticsPageView({
+        route,
+        language,
+        hasContrastPair: Boolean(routeContrastPair),
+        paletteSize: colors.length,
+      });
+    }
+  }, [canTrackAnalytics, colors.length, googleAnalyticsInitialized, language, route, routeContrastPair]);
+
+  useEffect(() => {
+    if (!canTrackAnalytics || route !== "helpFaq") {
+      return;
+    }
+
+    const faqVisitKey = `${language}:${window.location.pathname}${window.location.hash}`;
+    if (trackedFaqVisitsRef.current.has(faqVisitKey)) {
+      return;
+    }
+
+    trackedFaqVisitsRef.current.add(faqVisitKey);
+    const eventProperties = {
+      route,
+      language,
+      paletteSize: colors.length,
+      path: window.location.pathname,
+      hash: window.location.hash || undefined,
+    };
+
+    track("FAQ Visited", eventProperties);
+    capturePostHogEvent("FAQ Visited", eventProperties);
+    captureGoogleAnalyticsEvent("FAQ Visited", eventProperties);
+  }, [canTrackAnalytics, colors.length, language, route]);
 
   useEffect(() => {
     if (
@@ -1225,6 +1272,12 @@ function App() {
         colorFormat: scaleCssFormat,
         steps: scaleColors.length,
       });
+      trackProductEvent("Export Clicked", {
+        exportArea: "scale",
+        exportAction: "copy_snippet",
+        snippetType: scaleSnippetType,
+        colorFormat: scaleCssFormat,
+      });
     } catch {
       setCopiedColor("");
       return;
@@ -1259,6 +1312,11 @@ function App() {
     trackProductEvent("Scale ASE Downloaded", {
       steps: scaleColors.length,
     });
+    trackProductEvent("Export Clicked", {
+      exportArea: "scale",
+      exportAction: "download_ase",
+      steps: scaleColors.length,
+    });
 
     if (copiedColorTimeoutRef.current) {
       clearTimeout(copiedColorTimeoutRef.current);
@@ -1279,6 +1337,12 @@ function App() {
       await navigator.clipboard.writeText(paletteDeveloperSnippet);
       setCopiedColor("palette-snippet");
       trackProductEvent("Palette Snippet Copied", {
+        snippetType: paletteSnippetType,
+        colorFormat: paletteCssFormat,
+      });
+      trackProductEvent("Export Clicked", {
+        exportArea: "palette",
+        exportAction: "copy_snippet",
         snippetType: paletteSnippetType,
         colorFormat: paletteCssFormat,
       });
@@ -1315,6 +1379,10 @@ function App() {
     URL.revokeObjectURL(url);
     setCopiedColor("palette-ase");
     trackProductEvent("Palette ASE Downloaded");
+    trackProductEvent("Export Clicked", {
+      exportArea: "palette",
+      exportAction: "download_ase",
+    });
 
     if (copiedColorTimeoutRef.current) {
       clearTimeout(copiedColorTimeoutRef.current);
@@ -1370,6 +1438,12 @@ function App() {
         to: nextLanguage,
         paletteSize: colors.length,
       });
+      captureGoogleAnalyticsEvent("Language Changed", {
+        route,
+        from: language,
+        to: nextLanguage,
+        paletteSize: colors.length,
+      });
     }
 
     const nextMeta = getMetaForRoute(route, routeContrastPair, nextLanguage);
@@ -1387,10 +1461,17 @@ function App() {
     setShowConsentPrompt(false);
 
     if (nextConsent === "accepted") {
-      initPostHog()
+      Promise.all([initPostHog(), initGoogleAnalytics()])
         .then(() => {
           setPostHogConsent(true);
+          setGoogleAnalyticsConsent(true);
+          setGoogleAnalyticsInitialized(true);
           capturePostHogEvent("Analytics Consent Accepted", {
+            route,
+            language,
+            paletteSize: colors.length,
+          });
+          captureGoogleAnalyticsEvent("Analytics Consent Accepted", {
             route,
             language,
             paletteSize: colors.length,
@@ -1399,6 +1480,7 @@ function App() {
         .catch(() => {});
     } else {
       setPostHogConsent(false);
+      setGoogleAnalyticsConsent(false);
     }
   }
 

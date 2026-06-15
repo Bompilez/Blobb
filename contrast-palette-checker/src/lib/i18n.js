@@ -204,12 +204,12 @@ export const translations = {
         {
           title: "Cookies and browser storage",
           body:
-            "Blobb uses necessary browser storage to remember your palette, language, theme, and analytics consent choice. If you allow analytics, PostHog may also store a visitor ID, session/device information, and analytics settings in cookies and localStorage.",
+            "Blobb uses necessary browser storage to remember your palette, language, theme, and analytics consent choice. If you allow analytics, PostHog and Google may also store visitor, session/device, advertising, and analytics settings in cookies and localStorage.",
         },
         {
           title: "Analytics",
           body:
-            "If you consent to analytics, Blobb uses PostHog and Vercel analytics tools to measure how the website is used, such as page views, language changes, contrast checks, color additions, export actions, and basic performance signals. We use this to understand which tools are useful and where the website can be improved.",
+            "If you consent to analytics, Blobb uses PostHog, Vercel analytics tools, and Google Analytics/Google Ads to measure how the website is used, such as page views, language changes, contrast checks, palette creation, scale generation, FAQ visits, export actions, and basic performance signals. We use this to understand which tools are useful and where the website can be improved.",
         },
         {
           title: "Legal basis",
@@ -224,7 +224,7 @@ export const translations = {
         {
           title: "Who has access?",
           body:
-            "Analytics data may be processed by PostHog and technical hosting data may be processed by Vercel. These services are used to operate and improve the website.",
+            "Analytics data may be processed by PostHog, Google, and Vercel. Technical hosting data may be processed by Vercel. These services are used to operate, measure, advertise, and improve the website.",
         },
         {
           title: "How long is information stored?",
@@ -458,12 +458,12 @@ export const translations = {
         {
           title: "Informasjonskapsler og nettleserlagring",
           body:
-            "Blobb bruker nødvendig nettleserlagring for å huske paletten din, språk, tema og valg for analysesamtykke. Dersom du godtar analyse, kan PostHog også lagre besøks-ID, økt-/enhetsinformasjon og analyseinnstillinger i cookies og localStorage.",
+            "Blobb bruker nødvendig nettleserlagring for å huske paletten din, språk, tema og valg for analysesamtykke. Dersom du godtar analyse, kan PostHog og Google også lagre besøks-, økt-/enhets-, annonserings- og analyseinnstillinger i cookies og localStorage.",
         },
         {
           title: "Analyse",
           body:
-            "Hvis du samtykker til analyse, bruker Blobb PostHog og Vercel sine analyseverktøy til å måle hvordan nettsiden brukes, for eksempel sidevisninger, språkbytte, kontrastsjekker, farger som legges til, eksporthandlinger og enkle ytelsessignaler. Vi bruker dette til å forstå hvilke verktøy som er nyttige og hvor nettsiden kan forbedres.",
+            "Hvis du samtykker til analyse, bruker Blobb PostHog, Vercel sine analyseverktøy og Google Analytics/Google Ads til å måle hvordan nettsiden brukes, for eksempel sidevisninger, språkbytte, kontrastsjekker, paletter som opprettes, skalaer som genereres, FAQ-besøk, eksporthandlinger og enkle ytelsessignaler. Vi bruker dette til å forstå hvilke verktøy som er nyttige og hvor nettsiden kan forbedres.",
         },
         {
           title: "Behandlingsgrunnlag",
@@ -478,7 +478,7 @@ export const translations = {
         {
           title: "Hvem har tilgang?",
           body:
-            "Analysedata kan behandles av PostHog, og tekniske hostingdata kan behandles av Vercel. Disse tjenestene brukes for å drifte og forbedre nettsiden.",
+            "Analysedata kan behandles av PostHog, Google og Vercel. Tekniske hostingdata kan behandles av Vercel. Disse tjenestene brukes for å drifte, måle, annonsere og forbedre nettsiden.",
         },
         {
           title: "Hvor lenge lagres opplysningene?",
