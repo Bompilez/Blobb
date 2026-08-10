@@ -34,7 +34,6 @@ After analytics consent, Blobb sends product events to Vercel Analytics, PostHog
 - `export_clicked`
 - `faq_visited`
 
-Use GA4 Admin -> Events to mark these as key events, then import the relevant key events into Google Ads after linking Google Ads and GA4.
 
 ## Getting Started
 
